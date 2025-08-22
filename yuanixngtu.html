@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KotoBa - 增强版交互原型</title>
+    <style>
+        /* KotoBa 设计系统 - 枯山水美学 */
+        :root {
+            /* 色彩系统 */
+            --primary-beige: #F5F5DC;
+            --oat: #F6F4ED;
+            --sand: #FAF8F3;
+            --surface-paper: #FEFBF5;
+            --accent-green: #556B2F;
+            --accent-rust: #8B4513;
+            --text-primary: #333333;
+            --text-secondary: #888888;
+            --text-tertiary: #CCCCCC;
+            
+            /* 间距系统 */
+            --space-xs: 4px;
+            --space-sm: 8px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            --space-2xl: 48px;
+            --space-3xl: 64px;
+            
+            /* 圆角系统 */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --radius-2xl: 24px;
+            --radius-full: 50%;
+            
+            /* 阴影系统 */
+            --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.15);
+            --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Hiragino Sans', 'SF Pro Display', sans-serif;
+            background: var(--surface-paper);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background-image: 
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 35px,
+                    rgba(245, 245, 220, 0.08) 35px,
+                    rgba(245, 245, 220, 0.08) 70px
+                );
+        }
+
+        /* iPhone 容器 */
+        .device-container {
+            width: 375px;
+            height: 812px;
+            background: white;
+            border-radius: 40px;
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            position: relative;
+            border: 8px solid #1a1a1a;
+        }
+
+        /* 屏幕区域 */
+        .screen {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            background: var(--surface-paper);
+        }
+
+        /* 页面切换系统 */
+        .page {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .page.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        /* 字体系统 */
+        .text-logo {
+            font-size: 48px;
+            font-weight: 200;
+            letter-spacing: 8px;
+            line-height: 1.2;
+            font-family: 'Source Han Serif SC', 'Hiragino Mincho ProN', serif;
+        }
+
+        .text-h1 {
+            font-size: 32px;
+            font-weight: 300;
+            line-height: 1.3;
+        }
+
+        .text-h2 {
+            font-size: 24px;
+            font-weight: 300;
+            line-height: 1.4;
+        }
+
+        .text-body {
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 1.6;
+        }
+
+        .text-small {
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .text-caption {
+            font-size: 12px;
+            font-weight: 400;
+            line-height: 1.4;
+        }
+
+        .text-status {
+            font-size: 18px;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        /* 欢迎页 - 复古明信片风格 */
+        .welcome-page {
+            background: linear-gradient(135deg, var(--oat) 0%, var(--sand) 100%);
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-2xl);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .welcome-page::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="none" stroke="%23F5F5DC" stroke-width="0.5" opacity="0.2"/></svg>');
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translate(-50%, -50%); }
+            100% { transform: translate(0, 0); }
+        }
+
+        .welcome-card {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--space-2xl);
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            z-index: 1;
+            border: 1px solid rgba(245, 245, 220, 0.3);
+        }
+
+        .logo {
+            color: var(--accent-green);
+            margin-bottom: var(--space-lg);
+        }
+
+        .welcome-text {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-xl);
+        }
+
+        /* 按钮系统 */
+        .btn-primary {
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            padding: var(--space-md) var(--space-2xl);
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(85, 107, 47, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: var(--text-secondary);
+            border: none;
+            padding: var(--space-sm) var(--space-lg);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        /* 目的地选择页 */
+        .destination-page {
+            padding: var(--space-3xl) var(--space-xl);
+            background: var(--surface-paper);
+        }
+
+        .page-title {
+            text-align: center;
+            margin-bottom: var(--space-2xl);
+            color: var(--text-primary);
+        }
+
+        .destination-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 修改为单列 */
+            justify-items: center; /* 居中显示 */
+            gap: var(--space-lg);
+            margin-bottom: var(--space-2xl);
+        }
+
+        .destination-card {
+            background: white;
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+            box-shadow: var(--shadow-sm);
+            width: 60%; /* 为单个卡片设置合适的宽度 */
+        }
+
+        .destination-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .destination-flag {
+            font-size: 48px;
+            margin-bottom: var(--space-sm);
+        }
+
+        .destination-name {
+            color: var(--text-secondary);
+        }
+
+        /* 主对话界面 */
+        .conversation-page {
+            display: flex;
+            flex-direction: column;
+            background: var(--surface-paper);
+        }
+
+        .header {
+            padding: var(--space-lg);
+            background: white;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            padding: var(--space-sm);
+            border-radius: var(--radius-sm);
+            transition: all 0.2s ease;
+        }
+
+        .back-btn:hover {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .language-display {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .remaining-time {
+            color: var(--accent-rust);
+            font-weight: 500;
+        }
+
+        .conversation-area {
+            flex: 1;
+            padding: var(--space-lg);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        /* 消息气泡 */
+        .message {
+            max-width: 75%;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: var(--radius-xl);
+            animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--accent-green);
+            color: white;
+            border-bottom-right-radius: var(--radius-sm);
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background: white;
+            color: var(--text-primary);
+            border-bottom-left-radius: var(--radius-sm);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* 主状态指示器 - 核心组件 */
+        .main-indicator {
+            margin: var(--space-xl) auto;
+            width: 180px;
+            height: 180px;
+            background: white;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            box-shadow: var(--shadow-lg);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 3px solid rgba(245, 245, 220, 0.2);
+        }
+
+        .main-indicator:hover {
+            transform: scale(1.05);
+        }
+
+        /* 状态动画 */
+        .main-indicator.listening {
+            animation: breathe 2s infinite ease-in-out;
+        }
+
+        .main-indicator.translating {
+            animation: radio-dial 2s infinite ease-in-out;
+        }
+
+        .main-indicator.weak-signal {
+            animation: glitch 1s infinite;
+        }
+
+        .main-indicator.time-up {
+            background: var(--accent-rust);
+            color: white;
+            border-color: var(--accent-rust);
+        }
+
+        /* 核心动画系统 */
+        @keyframes breathe {
+            0%, 100% { 
+                box-shadow: 0 10px 40px rgba(85, 107, 47, 0.2);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 15px 60px rgba(85, 107, 47, 0.4);
+                transform: scale(1.02);
+            }
+        }
+
+        @keyframes radio-dial {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(3deg); }
+            75% { transform: rotate(-3deg); }
+            100% { transform: rotate(0deg); }
+        }
+
+        @keyframes glitch {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-2px); }
+            40% { transform: translateX(2px); }
+            60% { transform: translateX(-1px); }
+            80% { transform: translateX(1px); }
+        }
+
+        .status-text {
+            color: var(--text-primary);
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .main-indicator.listening .status-text {
+            color: var(--accent-green);
+        }
+
+        /* 设置页面 */
+        .settings-page {
+            padding: var(--space-xl);
+            background: var(--surface-paper);
+        }
+
+        .settings-item {
+            background: white;
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-md);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .settings-item:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* 开关组件 */
+        .toggle {
+            width: 50px;
+            height: 30px;
+            background: #ddd;
+            border-radius: 15px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .toggle.active {
+            background: var(--accent-green);
+        }
+
+        .toggle-dot {
+            width: 26px;
+            height: 26px;
+            background: white;
+            border-radius: var(--radius-full);
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .toggle.active .toggle-dot {
+            transform: translateX(20px);
+        }
+
+        /* 购买页面 */
+        .purchase-page {
+            padding: var(--space-xl);
+            background: var(--surface-paper);
+        }
+
+        .package-card {
+            background: white;
+            padding: var(--space-2xl);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-lg);
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 2px solid transparent;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .package-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .package-name {
+            font-size: 18px;
+            margin-bottom: var(--space-sm);
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .package-duration {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-md);
+        }
+
+        .package-price {
+            font-size: 24px;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        /* 弹窗系统 */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .popup-overlay.active {
+            display: flex;
+        }
+
+        .popup-card {
+            background: white;
+            padding: var(--space-xl);
+            border-radius: var(--radius-xl);
+            text-align: center;
+            max-width: 320px;
+            margin: var(--space-lg);
+            box-shadow: var(--shadow-xl);
+            animation: popupIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes popupIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .popup-title {
+            font-size: 20px;
+            margin-bottom: var(--space-md);
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .popup-text {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-2xl);
+            line-height: 1.6;
+        }
+
+        .popup-buttons {
+            display: flex;
+            gap: var(--space-md);
+        }
+
+        .popup-buttons .btn-primary,
+        .popup-buttons .btn-secondary {
+            flex: 1;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-md);
+        }
+
+        /* 导航控制 */
+        .nav-controls {
+            position: fixed;
+            bottom: var(--space-lg);
+            right: var(--space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            padding: var(--space-sm) var(--space-lg);
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            border-radius: var(--radius-xl);
+            cursor: pointer;
+            min-width: 120px;
+            transition: all 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .nav-btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .nav-btn.active {
+            background: var(--accent-rust);
+        }
+
+        /* Toast 通知 */
+        .toast {
+            position: fixed;
+            top: var(--space-lg);
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: white;
+            padding: var(--space-md) var(--space-lg);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            border-left: 4px solid var(--accent-rust);
+            z-index: 2000;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .device-container {
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+            
+            .nav-controls {
+                bottom: var(--space-sm);
+                right: var(--space-sm);
+            }
+            
+            .nav-btn {
+                min-width: 100px;
+                font-size: 12px;
+            }
+        }
+
+        /* 可访问性增强 */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* 高对比度模式 */
+        @media (prefers-contrast: high) {
+            :root {
+                --text-primary: #000000;
+                --text-secondary: #333333;
+                --accent-green: #2d4016;
+                --accent-rust: #5c2408;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="device-container">
+        <div class="screen">
+            <!-- 欢迎页 -->
+            <div class="page welcome-page active" id="welcome">
+                <div class="welcome-card">
+                    <div class="logo text-logo">言叶</div>
+                    <p class="welcome-text text-body">
+                        您已获得20分钟免费翻译时长<br>
+                        祝您旅途愉快
+                    </p>
+                    <button class="btn-primary text-body" onclick="showPage('destination')">开始使用</button>
+                </div>
+            </div>
+
+            <!-- 目的地选择页 (已修改) -->
+            <div class="page destination-page" id="destination">
+                <h2 class="page-title text-h2">选择目的地</h2>
+                <div class="destination-grid">
+                    <div class="destination-card" onclick="selectDestination('日本', '🇯🇵')">
+                        <div class="destination-flag">🇯🇵</div>
+                        <div class="destination-name text-small">日本</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 主对话界面 -->
+            <div class="page conversation-page" id="conversation">
+                <div class="header">
+                    <button class="back-btn" onclick="showPage('destination')" aria-label="返回">←</button>
+                    <div class="language-display text-small">中文 ⇄ <span id="target-language">日语</span></div>
+                    <div class="remaining-time text-caption">剩余: <span id="time-display">19:45</span></div>
+                </div>
+                
+                <div class="conversation-area" id="messages">
+                    <!-- 对话消息将在这里动态添加 -->
+                </div>
+
+                <div class="main-indicator" id="status-indicator" onclick="toggleListening()" role="button" aria-label="语音输入">
+                    <div class="status-text text-status" id="status-text">待机</div>
+                </div>
+
+                <div style="padding: var(--space-lg); text-align: center;">
+                    <button class="btn-secondary" onclick="showPage('settings')" style="margin-right: var(--space-sm);">设置</button>
+                    <button class="btn-primary" onclick="showPage('purchase')">购买时长</button>
+                </div>
+            </div>
+
+            <!-- 设置页面 -->
+            <div class="page settings-page" id="settings">
+                <div class="header">
+                    <button class="back-btn" onclick="showPage('conversation')" aria-label="返回">←</button>
+                    <div class="language-display text-small">设置</div>
+                    <div></div>
+                </div>
+
+                <div class="settings-item">
+                    <span class="text-body">音效提示</span>
+                    <div class="toggle active" onclick="toggleSetting(this)" role="switch" aria-checked="true">
+                        <div class="toggle-dot"></div>
+                    </div>
+                </div>
+
+                <div class="settings-item">
+                    <span class="text-body">触感反馈</span>
+                    <div class="toggle active" onclick="toggleSetting(this)" role="switch" aria-checked="true">
+                        <div class="toggle-dot"></div>
+                    </div>
+                </div>
+
+                <div class="settings-item" onclick="showReviewPopup()" style="cursor: pointer;">
+                    <span class="text-body">为 KotoBa 评分</span>
+                    <span style="color: var(--accent-green);">→</span>
+                </div>
+
+                <div class="settings-item">
+                    <span class="text-body">关于 KotoBa</span>
+                    <span class="text-small" style="color: var(--text-secondary);">v1.0</span>
+                </div>
+            </div>
+
+            <!-- 购买页面 -->
+            <div class="page purchase-page" id="purchase">
+                <div class="header">
+                    <button class="back-btn" onclick="showPage('conversation')" aria-label="返回">←</button>
+                    <div class="language-display text-small">购买时长</div>
+                    <div></div>
+                </div>
+
+                <div class="package-card" onclick="purchasePackage('coffee')">
+                    <div class="package-name">咖啡时光包</div>
+                    <div class="package-duration text-small">1小时翻译时长</div>
+                    <div class="package-price">¥20</div>
+                </div>
+
+                <div class="package-card" onclick="purchasePackage('business')">
+                    <div class="package-name">商务包</div>
+                    <div class="package-duration text-small">3小时翻译时长</div>
+                    <div class="package-price">¥40</div>
+                </div>
+
+                <div class="package-card" onclick="purchasePackage('travel')">
+                    <div class="package-name">深度旅行包</div>
+                    <div class="package-duration text-small">10小时翻译时长</div>
+                    <div class="package-price">¥100</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 好评弹窗 -->
+    <div class="popup-overlay" id="review-popup">
+        <div class="popup-card">
+            <div class="popup-title">喜欢 KotoBa 吗？</div>
+            <div class="popup-text">为我们留下一个好评，即可再获得20分钟的免费时长</div>
+            <div class="popup-buttons">
+                <button class="btn-secondary" onclick="closeReviewPopup()">以后再说</button>
+                <button class="btn-primary" onclick="grantReviewBonus()">去好评</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div class="toast" id="toast">
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- 导航控制 -->
+    <div class="nav-controls">
+        <button class="nav-btn" onclick="showPage('welcome')">欢迎页</button>
+        <button class="nav-btn" onclick="showPage('destination')">选择目的地</button>
+        <button class="nav-btn" onclick="showPage('conversation')">对话界面</button>
+        <button class="nav-btn" onclick="showPage('settings')">设置</button>
+        <button class="nav-btn" onclick="showPage('purchase')">购买</button>
+        <button class="nav-btn" onclick="demoConversation()">演示对话</button>
+        <button class="nav-btn" onclick="demoStates()">演示状态</button>
+    </div>
+
+    <script>
+        // 全局状态管理
+        let currentPage = 'welcome';
+        let isListening = false;
+        let currentState = 'idle'; // idle, listening, translating, weak-signal, time-up
+        let remainingTime = 19 * 60 + 45; // 19分45秒
+        let selectedDestination = '';
+        let selectedFlag = '';
+
+        // 页面切换
+        function showPage(pageId) {
+            // 移除所有页面的 active 类
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // 显示目标页面
+            document.getElementById(pageId).classList.add('active');
+            currentPage = pageId;
+            
+            // 更新导航按钮状态
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
+
+        // 目的地选择
+        function selectDestination(destination, flag) {
+            selectedDestination = destination;
+            selectedFlag = flag;
+            document.getElementById('target-language').textContent = getLanguageName(destination);
+            showPage('conversation');
+            showToast(`已选择目的地：${destination}`);
+        }
+
+        function getLanguageName(destination) {
+            const languageMap = {
+                '日本': '日语',
+                '韩国': '韩语', 
+                '泰国': '泰语',
+                '英语国家': '英语'
+            };
+            return languageMap[destination] || '外语';
+        }
+
+        // 语音交互
+        function toggleListening() {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            if (currentState === 'idle') {
+                startListening();
+            } else if (currentState === 'listening') {
+                stopListening();
+            }
+        }
+
+        function startListening() {
+            currentState = 'listening';
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            indicator.className = 'main-indicator listening';
+            statusText.textContent = '聆听中...';
+            
+            // 模拟语音识别
+            setTimeout(() => {
+                if (currentState === 'listening') {
+                    startTranslating();
+                }
+            }, 2000 + Math.random() * 3000);
+        }
+
+        function startTranslating() {
+            currentState = 'translating';
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            indicator.className = 'main-indicator translating';
+            statusText.textContent = '翻译中...';
+            
+            // 模拟翻译过程
+            setTimeout(() => {
+                finishTranslation();
+            }, 1500 + Math.random() * 2000);
+        }
+
+        function finishTranslation() {
+            currentState = 'idle';
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            indicator.className = 'main-indicator';
+            statusText.textContent = '待机';
+            
+            // 添加模拟对话
+            addMessage('user', '请问洗手间在哪里？');
+            setTimeout(() => {
+                addMessage('ai', 'トイレはどこですか？');
+            }, 500);
+        }
+
+        function stopListening() {
+            currentState = 'idle';
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            indicator.className = 'main-indicator';
+            statusText.textContent = '待机';
+        }
+
+        // 消息管理
+        function addMessage(type, content) {
+            const messagesContainer = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = content;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // 设置切换
+        function toggleSetting(toggleElement) {
+            toggleElement.classList.toggle('active');
+            const isActive = toggleElement.classList.contains('active');
+            toggleElement.setAttribute('aria-checked', isActive);
+        }
+
+        // 好评弹窗
+        function showReviewPopup() {
+            document.getElementById('review-popup').classList.add('active');
+        }
+
+        function closeReviewPopup() {
+            document.getElementById('review-popup').classList.remove('active');
+        }
+
+        function grantReviewBonus() {
+            closeReviewPopup();
+            remainingTime += 20 * 60; // 增加20分钟
+            updateTimeDisplay();
+            showToast('感谢您的好评！已获得20分钟免费时长');
+        }
+
+        // 购买处理
+        function purchasePackage(packageType) {
+            const packages = {
+                'coffee': { name: '咖啡时光包', time: 1 * 60 * 60, price: '¥20' }, // Corrected time to 1 hour
+                'business': { name: '商务包', time: 3 * 60 * 60, price: '¥40' }, // Corrected time to 3 hours
+                'travel': { name: '深度旅行包', time: 10 * 60 * 60, price: '¥100' } // Corrected time to 10 hours
+            };
+            
+            const pkg = packages[packageType];
+            if (pkg) {
+                remainingTime += pkg.time;
+                updateTimeDisplay();
+                showToast(`购买成功！${pkg.name} ${pkg.price}`);
+                showPage('conversation');
+            }
+        }
+
+        // 时间管理
+        function updateTimeDisplay() {
+            const hours = Math.floor(remainingTime / 3600);
+            const minutes = Math.floor((remainingTime % 3600) / 60);
+            const seconds = remainingTime % 60;
+            
+            let timeString = '';
+            if (hours > 0) {
+                timeString = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            document.getElementById('time-display').textContent = timeString;
+        }
+
+        // Toast 通知
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 演示功能
+        function demoConversation() {
+            showPage('conversation');
+            const demoMessages = [
+                { type: 'user', content: '你好，请问这里有什么推荐的餐厅吗？' },
+                { type: 'ai', content: 'こんにちは、おすすめのレストランはありますか？' },
+                { type: 'user', content: '我想要一些当地特色菜' },
+                { type: 'ai', content: '地元の特産料理が欲しいです' }
+            ];
+            
+            // 清空现有消息
+            document.getElementById('messages').innerHTML = '';
+            
+            // 逐个添加演示消息
+            demoMessages.forEach((msg, index) => {
+                setTimeout(() => {
+                    addMessage(msg.type, msg.content);
+                }, index * 1000);
+            });
+        }
+
+        function demoStates() {
+            showPage('conversation');
+            const states = ['listening', 'translating', 'weak-signal', 'time-up', 'idle'];
+            let currentIndex = 0;
+            
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            
+            const stateTexts = {
+                'listening': '聆听中...',
+                'translating': '翻译中...',
+                'weak-signal': '信号弱...',
+                'time-up': '时长已用尽',
+                'idle': '待机'
+            };
+            
+            function showNextState() {
+                const state = states[currentIndex];
+                indicator.className = `main-indicator ${state}`;
+                statusText.textContent = stateTexts[state];
+                
+                currentIndex = (currentIndex + 1) % states.length;
+                
+                if (currentIndex !== 0) {
+                    setTimeout(showNextState, 2000);
+                }
+            }
+            
+            showNextState();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimeDisplay();
+            
+            // 模拟时间倒计时
+            setInterval(() => {
+                if (remainingTime > 0) {
+                    remainingTime--;
+                    updateTimeDisplay();
+                    
+                    if (remainingTime === 0) {
+                        currentState = 'time-up';
+                        const indicator = document.getElementById('status-indicator');
+                        const statusText = document.getElementById('status-text');
+                        indicator.className = 'main-indicator time-up';
+                        statusText.textContent = '时长已用尽';
+                        showToast('翻译时长已用尽，请购买时长包继续使用');
+                    }
+                }
+            }, 1000);
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeReviewPopup();
+            } else if (e.key === ' ' && currentPage === 'conversation') {
+                e.preventDefault();
+                toggleListening();
+            }
+        });
+    </script>
+</body>
+</html>
