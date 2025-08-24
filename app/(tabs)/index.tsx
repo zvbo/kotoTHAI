@@ -3,23 +3,21 @@ import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } f
 import { LinearGradient } from 'expo-linear-gradient';
 
 import ConversationBubble from '@/components/ConversationBubble';
-import LanguagePickerModal from '@/components/LanguagePickerModal';
-import LanguageSelector from '@/components/LanguageSelector';
 import ReviewPrompt from '@/components/ReviewPrompt';
 // 移除手动录音模式的状态指示器
 // import StatusIndicator from '@/components/StatusIndicator';
 import TimeExpiredCard from '@/components/TimeExpiredCard';
 import WelcomeCard from '@/components/WelcomeCard';
 import { useAppContext } from '@/context/AppContext';
-import { translateText } from '@/utils/api';
 import useAudioRecording from '@/hooks/useAudioRecording';
 import useTranslation from '@/hooks/useTranslation';
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
 import useRealtime from '@/hooks/useRealtime';
+import LanguageSelector from '@/components/LanguageSelector';
 
 
 // Constants for review reward time
-const REVIEW_REWARD_TIME = 20 * 60; // 20 minutes in seconds
+const REVIEW_REWARD_TIME = 5 * 60; // 5 minutes in seconds
 
 export default function TranslateScreen() {
   const {
@@ -29,7 +27,7 @@ export default function TranslateScreen() {
     status,
     messages,
     isSessionActive,
-    setTargetLanguage,
+    // setTargetLanguage, // 已移除语言选择功能，不再需要变更目标语言
     startSession,
     stopSession,
     markAsRated,
@@ -37,6 +35,7 @@ export default function TranslateScreen() {
     shouldPromptForReview,
     addMessage,
     setStatus,
+    markLowTimePromptShown,
   } = useAppContext();
 
   // Audio recording hook
@@ -47,6 +46,14 @@ export default function TranslateScreen() {
   // 为实时模式传入语言代码，后续在 /api/ephemeral 中作为提示
   const realtime = useRealtime({ sourceLangCode: sourceLanguage.code, targetLangCode: targetLanguage.code });
   const [realtimeEnabled, setRealtimeEnabled] = useState(false);
+
+  // 稳定引用 start/stop，避免依赖变化导致的循环调用
+  const startSessionRef = useRef(startSession);
+  const stopSessionRef = useRef(stopSession);
+  useEffect(() => {
+    startSessionRef.current = startSession;
+    stopSessionRef.current = stopSession;
+  }, [startSession, stopSession]);
 
   // 本地缓冲区：将 Realtime 的增量文本缓冲，空闲一段时间后落为一条消息
   const [rtBuffer, setRtBuffer] = useState('');
@@ -62,7 +69,7 @@ export default function TranslateScreen() {
   const [rtTgtBuffer, setRtTgtBuffer] = useState('');
 
   // Local state for modals
-  const [showTargetPicker, setShowTargetPicker] = useState(false);
+  // const [showTargetPicker, setShowTargetPicker] = useState(false); // 移除：不再展示目标语言选择弹窗
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   
   // Ref for messages list
@@ -72,8 +79,10 @@ export default function TranslateScreen() {
   useEffect(() => {
     if (shouldPromptForReview()) {
       setShowReviewPrompt(true);
+      // 在弹出的同时，立即标记已显示，确保仅弹一次
+      markLowTimePromptShown();
     }
-  }, [shouldPromptForReview]);
+  }, [shouldPromptForReview, markLowTimePromptShown]);
 
   // 录音/转写流程：根据当前状态进行切换
   const handleStatusPress = useCallback(async () => {
@@ -127,11 +136,11 @@ export default function TranslateScreen() {
   }, [isSessionActive, isRecording, startSession, startRecording, stopRecording, getAudioFile, transcribeAudio, createMessage, addMessage, sourceLanguage, targetLanguage, setStatus, translationError, realtimeEnabled]);
 
   // Handle language selection
-  const handleTargetLanguagePress = useCallback(() => {
-    if (!isSessionActive) {
-      setShowTargetPicker(true);
-    }
-  }, [isSessionActive]);
+  // const handleTargetLanguagePress = useCallback(() => {
+  //   if (!isSessionActive) {
+  //     setShowTargetPicker(true);
+  //   }
+  // }, [isSessionActive]);
 
   // Handle review prompt
   const handleRequestReview = useCallback(async () => {
@@ -161,21 +170,7 @@ export default function TranslateScreen() {
     console.log('Navigate to purchase screen');
   }, []);
 
-  // Test API function
-  const handleTestAPI = useCallback(async () => {
-    try {
-      Alert.alert('测试中...', '正在测试API连接');
-      
-      // Test translation API
-      const translation = await translateText('你好，世界！', 'Chinese', 'English');
-      console.log('Translation result:', translation);
-      
-      Alert.alert('API测试成功', `翻译结果: ${translation}`);
-    } catch (error) {
-      console.error('API test failed:', error);
-      Alert.alert('API测试失败', '请检查网络连接');
-    }
-  }, []);
+  // 已移除：测试API按钮与相关函数
 
   // 实时模式切换与连接
   useEffect(() => {
@@ -185,7 +180,7 @@ export default function TranslateScreen() {
       realtime.connect();
     }
     return () => {
-      // 关闭开关时断开
+      // 关闭开关时断开（仅网络/音频资源清理，不再在此处更新全局会话状态）
       realtime.disconnect();
       if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
       setRtBuffer('');
@@ -201,6 +196,7 @@ export default function TranslateScreen() {
     setRealtimeEnabled((prev) => {
       const next = !prev;
       if (!next) {
+        // 关闭实时：断开并清理缓冲（会话计时在下方 useEffect 中停止）
         realtime.disconnect();
         if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
         setRtBuffer('');
@@ -214,12 +210,20 @@ export default function TranslateScreen() {
     });
   }, [realtime]);
 
+  // 根据实时模式开关安全地启动/停止会话（在 effect 中执行，避免渲染期间 setState）
+  useEffect(() => {
+    if (realtimeEnabled) {
+      try { startSessionRef.current?.(); } catch {}
+    } else {
+      try { stopSessionRef.current?.(); } catch {}
+    }
+  }, [realtimeEnabled]);
+
   // 当语言变化时（且实时开启），自动重连让新的指令生效
   useEffect(() => {
     if (!realtimeEnabled) return;
-    // 简单策略：先断开后重连
-    realtime.disconnect();
-    realtime.connect();
+    // 改为串行重连，避免旧连接未完全关闭导致的“双声同播”
+    realtime.reconnect?.();
   }, [sourceLanguage.code, targetLanguage.code, realtimeEnabled]);
 
   // 提取 Realtime 事件中的文本增量
@@ -255,6 +259,15 @@ export default function TranslateScreen() {
   // 将 Realtime 文本增量缓冲，并在短暂空闲后落入全局消息
   useEffect(() => {
     if (!realtimeEnabled) return;
+    // 调试：打印事件类型与关键字段，便于识别“原文/译文”事件
+    try {
+      if (realtime.lastEvent) {
+        const ev: any = realtime.lastEvent;
+        const t = typeof ev === 'object' ? ev.type : typeof ev;
+        console.debug('[Realtime] event:', t, '\nkeys=', typeof ev === 'object' ? Object.keys(ev) : 'primitive');
+      }
+    } catch {}
+
     const tgtChunk = extractRealtimeText(realtime.lastEvent);
     const srcChunk = extractOriginalText(realtime.lastEvent);
     if (!tgtChunk && !srcChunk) return;
@@ -320,7 +333,7 @@ export default function TranslateScreen() {
       rtSrcBufferRef.current = '';
       rtTgtBufferRef.current = '';
       rtBufferRef.current = '';
-    }, 600);
+    }, 1000);
   }, [realtime.lastEvent, realtimeEnabled, addMessage, sourceLanguage.code, targetLanguage.code, extractRealtimeText, extractOriginalText, conversationMode]);
 
   // 当关闭实时或卸载时清理缓冲
@@ -358,16 +371,16 @@ export default function TranslateScreen() {
         />
       )}
       
-      {/* Language selector */}
-      <LanguageSelector 
-        sourceLanguage={sourceLanguage}
-        targetLanguage={targetLanguage}
-        onSourcePress={() => {}} // Source is fixed
-        onTargetPress={handleTargetLanguagePress}
-        onSwapPress={handleTargetLanguagePress} // Swap button opens target picker
-        disabled={isSessionActive}
+      {/* 语言固定为 中文 -> 日语，已移除语言选择 UI */}
+      {/* 恢复语言选择 UI（仅UI展示，不改变功能，不允许交互） */}
+      <LanguageSelector
+      sourceLanguage={sourceLanguage}
+      targetLanguage={targetLanguage}
+      onSourcePress={() => {}}
+      onTargetPress={() => {}}
+      onSwapPress={() => {}}
+      disabled={true}
       />
-      
       {/* Conversation area */}
       <View style={styles.conversationContainer}>
         {messages.length > 0 ? (
@@ -397,25 +410,11 @@ export default function TranslateScreen() {
           >
             <Text style={styles.testButtonText}>{realtimeEnabled ? '关闭实时模式' : '开启实时模式'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.testButton, { marginTop: spacing.md }]}
-            onPress={handleTestAPI}
-          >
-            <Text style={styles.testButtonText}>测试API</Text>
-          </TouchableOpacity>
+          {/* 测试API按钮已移除 */}
         </View>
       </View>
 
-      {/* Language picker modal */}
-      <LanguagePickerModal 
-        visible={showTargetPicker}
-        selectedLanguage={targetLanguage}
-        onSelect={(lang) => {
-          setTargetLanguage(lang);
-          setShowTargetPicker(false);
-        }}
-        onClose={() => setShowTargetPicker(false)}
-      />
+      {/* 目标语言选择弹窗已移除 */}
     </LinearGradient>
   );
 }
