@@ -2,10 +2,7 @@
 export const ALL_LANGUAGES = [
   { code: 'zh', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' },
   { code: 'ja', name: 'Japanese', flag: '🇯🇵', nativeName: '日本語' },
-  // 其他语言保留但暂不暴露为可选
   { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
-  { code: 'ko', name: 'Korean', flag: '🇰🇷', nativeName: '한국어' },
-  { code: 'th', name: 'Thai', flag: '🇹🇭', nativeName: 'ไทย' },
 ];
 
 // 对外可选的目标语言（暂时仅开放日语）

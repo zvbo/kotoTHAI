@@ -689,7 +689,7 @@
                 <div class="welcome-card">
                     <div class="logo text-logo">言叶</div>
                     <p class="welcome-text text-body">
-                        您已获得20分钟免费翻译时长<br>
+                        您已获得5分钟免费翻译时长<br>
                         祝您旅途愉快
                     </p>
                     <button class="btn-primary text-body" onclick="showPage('destination')">开始使用</button>
@@ -795,7 +795,7 @@
     <div class="popup-overlay" id="review-popup">
         <div class="popup-card">
             <div class="popup-title">喜欢 KotoBa 吗？</div>
-            <div class="popup-text">为我们留下一个好评，即可再获得20分钟的免费时长</div>
+            <div class="popup-text">为我们留下一个好评，即可再获得5分钟的免费时长</div>
             <div class="popup-buttons">
                 <button class="btn-secondary" onclick="closeReviewPopup()">以后再说</button>
                 <button class="btn-primary" onclick="grantReviewBonus()">去好评</button>
@@ -958,9 +958,9 @@
 
         function grantReviewBonus() {
             closeReviewPopup();
-            remainingTime += 20 * 60; // 增加20分钟
+            remainingTime += 5 * 60; // 增加5分钟
             updateTimeDisplay();
-            showToast('感谢您的好评！已获得20分钟免费时长');
+            showToast('感谢您的好评！已获得5分钟免费时长');
         }
 
         // 购买处理

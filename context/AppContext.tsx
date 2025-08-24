@@ -1,15 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 import { DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE, WELCOME_MESSAGES, ALL_LANGUAGES } from '@/constants/languages';
 import { ConversationMessage, ConversationStatus, Language, UserState } from '@/types';
 import { getDeviceId } from '@/utils/device';
 
-// Initial free time in seconds (20 minutes)
-const INITIAL_FREE_TIME = 20 * 60;
-// Review reward time in seconds (20 minutes)
-const REVIEW_REWARD_TIME = 20 * 60;
+// Initial free time in seconds (10 minutes)
+const INITIAL_FREE_TIME = 10 * 60;
+// Review reward time in seconds (5 minutes)
+const REVIEW_REWARD_TIME = 5 * 60;
 // Low time threshold to prompt for review (3 minutes)
 const LOW_TIME_THRESHOLD = 3 * 60;
 
@@ -19,7 +19,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     deviceId: '',
     remainingTime: INITIAL_FREE_TIME,
     hasRated: false,
-    firstLaunch: true
+    firstLaunch: true,
+    lowTimePromptShown: false,
   });
 
   // Language selection
@@ -47,7 +48,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
           setUserState({
             ...parsedData,
             deviceId, // Always use the current device ID
-            firstLaunch: false
+            firstLaunch: false,
+            // 兼容旧数据：若不存在 lowTimePromptShown，默认 false
+            lowTimePromptShown: (parsedData as any).lowTimePromptShown ?? false,
           });
           console.log('Loaded existing user data:', parsedData);
         } else {
@@ -56,7 +59,8 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             deviceId,
             remainingTime: INITIAL_FREE_TIME,
             hasRated: false,
-            firstLaunch: true
+            firstLaunch: true,
+            lowTimePromptShown: false,
           };
           setUserState(newUserState);
           await AsyncStorage.setItem('kotoba_user_state', JSON.stringify(newUserState));
@@ -123,62 +127,43 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   }, [isSessionActive, userState.remainingTime]);
 
   // Methods for managing user state
-  const addTime = (seconds: number) => {
+  const addTime = useCallback((seconds: number) => {
     setUserState(prev => ({
       ...prev,
       remainingTime: prev.remainingTime + seconds
     }));
-  };
+  }, []);
 
-  const markAsRated = () => {
-    if (!userState.hasRated) {
-      setUserState(prev => ({
+  const markAsRated = useCallback(() => {
+    setUserState(prev => {
+      if (prev.hasRated) return prev;
+      return {
         ...prev,
         hasRated: true,
-        remainingTime: prev.remainingTime + REVIEW_REWARD_TIME
-      }));
-    }
-  };
+        remainingTime: prev.remainingTime + REVIEW_REWARD_TIME,
+      };
+    });
+  }, []);
 
-  const acknowledgeFirstLaunch = () => {
+  const acknowledgeFirstLaunch = useCallback(() => {
     setUserState(prev => ({
       ...prev,
       firstLaunch: false
     }));
-  };
+  }, []);
 
-  // Methods for conversation management
-  const startSession = () => {
-    if (userState.remainingTime <= 0) {
-      setStatus('time_expired');
-      return;
-    }
-    
-    // Add welcome message when starting session (always add it)
-    const welcomeMessage = WELCOME_MESSAGES[targetLanguage.code as keyof typeof WELCOME_MESSAGES] || WELCOME_MESSAGES.en;
-    addMessage({
-      text: welcomeMessage,
-      translatedText: '',
-      sourceLanguage: 'system',
-      targetLanguage: targetLanguage.code,
-      isUser: false
-    });
-    
-    setIsSessionActive(true);
-    setStatus('listening');
-  };
-
-  const stopSession = () => {
-    setIsSessionActive(false);
-    setStatus('idle');
-    // Clear messages when stopping session so welcome message appears next time
-    clearMessages();
-  };
+  // 新增：在显示低时长提示时打标，确保仅弹一次
+  const markLowTimePromptShown = useCallback(() => {
+    setUserState(prev => ({
+      ...prev,
+      lowTimePromptShown: true,
+    }));
+  }, []);
 
   // 新增：对话显示模式（仅译文/完整对话）
   const [conversationMode, setConversationMode] = useState<'translation_only' | 'full'>('translation_only');
 
-  const addMessage = (message: Omit<ConversationMessage, 'id' | 'timestamp'>) => {
+  const addMessage = useCallback((message: Omit<ConversationMessage, 'id' | 'timestamp'>) => {
     const newMessage: ConversationMessage = {
       ...message,
       id: Date.now().toString(),
@@ -186,22 +171,57 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     };
     
     setMessages(prev => [...prev, newMessage]);
-  };
+  }, []);
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setMessages([]);
-  };
+  }, []);
 
-  const swapLanguages = () => {
+  // 新增：测试用重置时长方法（不会清空设备ID等信息）
+  const resetUserTime = useCallback((seconds: number = INITIAL_FREE_TIME) => {
+    setUserState(prev => ({
+      ...prev,
+      remainingTime: seconds,
+      hasRated: false,
+      lowTimePromptShown: false,
+    }));
+  }, []);
+
+  // Methods for conversation management（稳定引用并避免重复设置导致的循环）
+  const startSession = useCallback(() => {
+    // 若已是激活状态，避免重复 setState
+    if (isSessionActive) return;
+
+    if (userState.remainingTime <= 0) {
+      setStatus('time_expired');
+      return;
+    }
+    
+    setIsSessionActive(true);
+    setStatus('listening');
+  }, [isSessionActive, userState.remainingTime]);
+
+  const stopSession = useCallback(() => {
+    // 若已是非激活状态，避免重复 setState
+    if (!isSessionActive) return;
+
+    setIsSessionActive(false);
+    setStatus('idle');
+    // 停止会话时清空当前对话内容
+    clearMessages();
+  }, [isSessionActive, clearMessages]);
+
+  const swapLanguages = useCallback(() => {
     const temp = sourceLanguage;
     setSourceLanguage(targetLanguage);
     setTargetLanguage(temp);
-  };
+  }, [sourceLanguage, targetLanguage]);
 
   // Check if user should be prompted for a review
-  const shouldPromptForReview = (): boolean => {
-    return !userState.hasRated && userState.remainingTime <= LOW_TIME_THRESHOLD;
-  };
+  const shouldPromptForReview = useCallback((): boolean => {
+    // 只要未评分，并且未显示过低时长提醒，且时间低于阈值，则允许弹出一次
+    return !userState.hasRated && !userState.lowTimePromptShown && userState.remainingTime <= LOW_TIME_THRESHOLD;
+  }, [userState.hasRated, userState.lowTimePromptShown, userState.remainingTime]);
 
   return {
     // State
@@ -221,6 +241,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     markAsRated,
     acknowledgeFirstLaunch,
     shouldPromptForReview,
+    markLowTimePromptShown,
     
     // Language management
     setSourceLanguage,
@@ -232,6 +253,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     stopSession,
     setStatus,
     addMessage,
-    clearMessages
+    clearMessages,
+
+    // 新增：开发测试 - 重置时长
+    resetUserTime,
   };
 });

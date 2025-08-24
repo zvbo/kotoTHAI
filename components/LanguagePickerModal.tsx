@@ -2,7 +2,7 @@ import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
 
-import { LANGUAGES } from '@/constants/languages';
+import { ALL_LANGUAGES } from '@/constants/languages';
 import { Language } from '@/types';
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
 
@@ -43,7 +43,7 @@ export default function LanguagePickerModal({
           </View>
           
           <FlatList
-            data={LANGUAGES}
+            data={ALL_LANGUAGES}
             keyExtractor={(item) => item.code}
             renderItem={({ item }) => (
               <TouchableOpacity

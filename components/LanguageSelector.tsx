@@ -26,14 +26,15 @@ export default function LanguageSelector({
     <View style={styles.container}>
       <LanguageButton 
         language={sourceLanguage} 
-        onPress={() => {}} // Source language is fixed (Chinese)
-        disabled={true} // Always disabled since Chinese is fixed
+        onPress={onSourcePress}
+        disabled={disabled}
         testID="source-language-button"
+        bottomLabel="listen"
       />
       
       <TouchableOpacity 
         style={styles.swapButton} 
-        onPress={onTargetPress} // Just open target language picker
+        onPress={onSwapPress}
         disabled={disabled}
         testID="swap-languages-button"
       >
@@ -45,6 +46,7 @@ export default function LanguageSelector({
         onPress={onTargetPress} 
         disabled={disabled}
         testID="target-language-button"
+        bottomLabel="speak"
       />
     </View>
   );
@@ -55,9 +57,10 @@ type LanguageButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   testID?: string;
+  bottomLabel?: string;
 };
 
-function LanguageButton({ language, onPress, disabled = false, testID }: LanguageButtonProps) {
+function LanguageButton({ language, onPress, disabled = false, testID, bottomLabel }: LanguageButtonProps) {
   return (
     <TouchableOpacity 
       style={[styles.languageButton, disabled && styles.disabled]} 
@@ -70,6 +73,7 @@ function LanguageButton({ language, onPress, disabled = false, testID }: Languag
       {language.nativeName && language.nativeName !== language.name && (
         <Text style={styles.nativeName}>{language.nativeName}</Text>
       )}
+      {bottomLabel ? <Text style={styles.bottomLabel}>{bottomLabel}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -104,6 +108,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textSecondary,
     marginTop: 2,
+  },
+  bottomLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 6,
   },
   swapButton: {
     backgroundColor: Colors.background,

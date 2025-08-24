@@ -6,44 +6,106 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function buildInstructions(source?: string, target?: string) {
-  const s = (source || 'zh').toLowerCase();
-  const t = (target || 'ja').toLowerCase();
-  const sourceLang = { zh: 'Chinese', ja: 'Japanese', en: 'English' }[s] || 'Chinese';
-  const targetLang = { zh: 'Chinese', ja: 'Japanese', en: 'English' }[t] || 'Japanese';
+// 单向同传提示词（Listen -> Speak）
+// 支持: zh | en | ja
+function buildInstructions(listen?: string, speak?: string) {
+  const code = (x?: string) => (x || 'zh').toLowerCase();
+  const L = code(listen);   // 源语言（Listen）
+  const S = code(speak);    // 目标语言（Speak）
 
-  // 使用上一轮我们优化过的、更稳定可靠的英文指令集
-  return `You are a professional real-time simultaneous interpreter between ${sourceLang} and ${targetLang}.
-Your single and only role is to translate. Never act as a chatbot or an assistant.
+  // 语言英文名
+  const NAME: Record<string, string> = {
+    zh: 'Chinese',
+    en: 'English',
+    ja: 'Japanese',
+  };
 
-**Strict Rules:**
-1.  First, detect the input language.
-2.  If the input is in ${sourceLang}, you MUST translate it ONLY into ${targetLang}.
-3.  If the input is in ${targetLang}, you MUST translate it ONLY into ${sourceLang}.
-4.  NEVER reply in the same language as the input. This is a critical rule.
-5.  NEVER answer questions, add any commentary, or explain things. Just translate.
-6.  Keep translations natural and conversational. Prioritize low latency.
-7.  While prioritizing speed, you MUST preserve the original meaning and key details as much as possible. Do not over-simplify.
-8.  If the input is noise, silence, or a language other than ${sourceLang} or ${targetLang}, you MUST remain silent and output nothing.`;
+  // 语言本地显示名（可选，用于示例区/风格说明）
+  const LOCAL: Record<string, string> = {
+    zh: '中文',
+    en: 'English',
+    ja: '日本語',
+  };
+
+  // 目标语言风格规则（可按需增改）
+  const STYLE: Record<string, string> = {
+    zh: 'Use natural, conversational Mainland Chinese. Avoid internet slang unless present in the source.',
+    en: 'Use natural, idiomatic spoken English. Avoid over-formality.',
+    ja: 'Use natural. Keep sentences concise and natural.',
+  };
+
+  const src = NAME[L] || 'Chinese';
+  const tgt = NAME[S] || 'Japanese';
+  const tgtStyle = STYLE[S] || STYLE['en'];
+
+  // 单向翻译：仅当输入主要是源语言 L 时才翻译为 S
+  return `You are a low-latency, **one-way** simultaneous interpreter.
+
+Listen in ${src}. Speak only in ${tgt}. Translation direction is fixed and must never reverse.
+
+HARD RULES:
+
+- User questions only need to be translated, not for you to have a conversation with the user
+- For every incoming segment, translate it ONLY into ${tgt}.
+- If the input is NOT mainly ${src} (noise, silence, or other languages), output nothing.
+- Never chat, explain, or add meta commentary. Do not echo the source.
+- - Output the complete content.Keep numbers, dates, units, and named entities accurate; leave standard proper names in their original form when appropriate.
+- If user speech resumes while you are speaking, stop immediately and wait for the next segment.
+
+OUTPUT STYLE (for ${tgt} / ${LOCAL[S] || tgt}):
+
+- ${tgtStyle}
+
+SEGMENT POLICY:
+
+- Treat every segment as independent; ignore previous segments when deciding whether to translate.
+- Mixed-language input: if ${src} content is ≥70%, proceed; if unclear, stay silent until confident.
+
+SILENCE/NOISE:
+
+- If the input is silence/noise or not ${src}, produce no output.
+
+EXAMPLES (illustrative only):
+
+[${src} → ${tgt}]
+
+User: <${src} sentence>
+
+Assistant: <${tgt} translation>`;
 }
 
 // 颁发临时密钥（OpenAI Realtime session）
 router.post('/ephemeral', async (req, res) => {
   try {
+    // 前端传入 sourceLanguage/targetLanguage，这里直接映射为 listen/speak
     const { sourceLanguage, targetLanguage } = req.body || {};
 
     const session = await openai.beta.realtime.sessions.create({
       model: 'gpt-4o-mini-realtime-preview-2024-12-17',
-      voice: 'Alloy',
+      modalities: ['text', 'audio'],
+      voice: 'alloy',
       instructions: buildInstructions(sourceLanguage, targetLanguage),
+      // 低温采样，稳定输出
+      temperature: 0.2,
+      top_p: 0.3,
+      // 说话检测：服务端 VAD，减少延迟
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 900,
+        create_response: true,
+      } as any,
+      // 语音转写模型
+      input_audio_transcription: { model: 'whisper-1' },
       tools: [],
-    });
+    } as any);
 
     return res.json({
       apiKey: session.client_secret.value,
       session: {
         model: 'gpt-4o-mini-realtime-preview-2024-12-17',
-        voice: 'Alloy',
+        voice: 'alloy',
       },
     });
   } catch (error) {
@@ -57,7 +119,7 @@ router.get('/status', (_req, res) => {
   res.json({
     status: 'ready',
     model: 'gpt-4o-mini-realtime-preview-2024-12-17',
-    voice: 'Alloy',
+    voice: 'alloy',
     tools: [],
   });
 });

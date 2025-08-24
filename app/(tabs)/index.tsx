@@ -14,6 +14,8 @@ import useTranslation from '@/hooks/useTranslation';
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
 import useRealtime from '@/hooks/useRealtime';
 import LanguageSelector from '@/components/LanguageSelector';
+import LanguagePickerModal from '@/components/LanguagePickerModal';
+import ToastBanner from '../../components/ToastBanner';
 
 
 // Constants for review reward time
@@ -27,7 +29,6 @@ export default function TranslateScreen() {
     status,
     messages,
     isSessionActive,
-    // setTargetLanguage, // 已移除语言选择功能，不再需要变更目标语言
     startSession,
     stopSession,
     markAsRated,
@@ -36,6 +37,9 @@ export default function TranslateScreen() {
     addMessage,
     setStatus,
     markLowTimePromptShown,
+    swapLanguages,
+    setSourceLanguage,
+    setTargetLanguage,
   } = useAppContext();
 
   // Audio recording hook
@@ -69,9 +73,13 @@ export default function TranslateScreen() {
   const [rtTgtBuffer, setRtTgtBuffer] = useState('');
 
   // Local state for modals
-  // const [showTargetPicker, setShowTargetPicker] = useState(false); // 移除：不再展示目标语言选择弹窗
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
   const [showReviewPrompt, setShowReviewPrompt] = useState(false);
   
+  // Toast 状态（非模态小条提示）
+  const [toast, setToast] = useState<null | { message: string; type: 'info' | 'success' | 'error'; key: number }>(null);
+  const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => setToast({ message, type, key: Date.now() });
   // Ref for messages list
   const messagesListRef = useRef<FlatList>(null);
 
@@ -192,6 +200,31 @@ export default function TranslateScreen() {
     };
   }, [realtimeEnabled]);
 
+  // Toast：连接进度/结果/错误
+  useEffect(() => {
+    if (realtimeEnabled && realtime.isConnecting) {
+      showToast('正在连接...', 'info');
+    }
+  }, [realtimeEnabled, realtime.isConnecting]);
+  useEffect(() => {
+    if (realtimeEnabled && realtime.isConnected) {
+      showToast('已连接', 'success');
+    }
+  }, [realtimeEnabled, realtime.isConnected]);
+  useEffect(() => {
+    if (realtime.error) {
+      showToast(realtime.error, 'error');
+    }
+  }, [realtime.error]);
+  const prevRealtimeEnabledRef = useRef(false);
+  useEffect(() => {
+    const prev = prevRealtimeEnabledRef.current;
+    prevRealtimeEnabledRef.current = realtimeEnabled;
+    if (prev && !realtimeEnabled) {
+      showToast('已断开', 'info');
+    }
+  }, [realtimeEnabled]);
+
   const toggleRealtime = useCallback(() => {
     setRealtimeEnabled((prev) => {
       const next = !prev;
@@ -225,6 +258,32 @@ export default function TranslateScreen() {
     // 改为串行重连，避免旧连接未完全关闭导致的“双声同播”
     realtime.reconnect?.();
   }, [sourceLanguage.code, targetLanguage.code, realtimeEnabled]);
+
+  // 新增：当时间耗尽或会话被动结束时，自动关闭实时模式并断开连接
+  useEffect(() => {
+    if (status === 'time_expired' && realtimeEnabled) {
+      try { realtime.disconnect(); } catch {}
+      setRealtimeEnabled(false);
+    }
+  }, [status, realtimeEnabled, realtime]);
+
+  // 修复：避免在“开启实时”第一时间由于 isSessionActive 尚未置为 true 而被误判为未激活从而立即断开
+  // 仅在 isSessionActive 从 true -> false 的过渡时执行断开逻辑
+  const prevIsSessionActiveRef = useRef<boolean>(isSessionActive);
+  useEffect(() => {
+    const prev = prevIsSessionActiveRef.current;
+    prevIsSessionActiveRef.current = isSessionActive;
+    if (prev && !isSessionActive && realtimeEnabled) {
+      try { realtime.disconnect(); } catch {}
+      setRealtimeEnabled(false);
+    }
+  }, [isSessionActive, realtimeEnabled, realtime]);
+
+  useEffect(() => {
+    if (!isSessionActive && realtimeEnabled) {
+      // 已由上方过渡检测处理，这里不再做任何操作以避免竞态
+    }
+  }, [isSessionActive, realtimeEnabled]);
 
   // 提取 Realtime 事件中的文本增量
   const extractRealtimeText = useCallback((ev: any): string | null => {
@@ -354,6 +413,14 @@ export default function TranslateScreen() {
       colors={[colors.primary.beige, colors.primary.sand]}
       style={styles.container}
     >
+      {toast && (
+        <ToastBanner
+          key={toast.key}
+          message={toast.message}
+          type={toast.type}
+          onHide={() => setToast(null)}
+        />
+      )}
       {/* Welcome card for first launch */}
       {userState.firstLaunch && (
         <WelcomeCard 
@@ -374,12 +441,32 @@ export default function TranslateScreen() {
       {/* 语言固定为 中文 -> 日语，已移除语言选择 UI */}
       {/* 恢复语言选择 UI（仅UI展示，不改变功能，不允许交互） */}
       <LanguageSelector
-      sourceLanguage={sourceLanguage}
-      targetLanguage={targetLanguage}
-      onSourcePress={() => {}}
-      onTargetPress={() => {}}
-      onSwapPress={() => {}}
-      disabled={true}
+        sourceLanguage={sourceLanguage}
+        targetLanguage={targetLanguage}
+        onSourcePress={() => setShowSourcePicker(true)}
+        onTargetPress={() => setShowTargetPicker(true)}
+        onSwapPress={() => swapLanguages()}
+        disabled={false}
+      />
+
+      <LanguagePickerModal
+        visible={showSourcePicker}
+        selectedLanguage={sourceLanguage}
+        onSelect={(lang) => {
+          setSourceLanguage(lang);
+        }}
+        onClose={() => setShowSourcePicker(false)}
+        title="选择听的语言"
+      />
+
+      <LanguagePickerModal
+        visible={showTargetPicker}
+        selectedLanguage={targetLanguage}
+        onSelect={(lang) => {
+          setTargetLanguage(lang);
+        }}
+        onClose={() => setShowTargetPicker(false)}
+        title="选择说的语言"
       />
       {/* Conversation area */}
       <View style={styles.conversationContainer}>
@@ -401,8 +488,12 @@ export default function TranslateScreen() {
         {/* 已移除手动录音按钮与交互，仅保留实时模式区域 */}
         {/* 实时模式（Beta） */}
         <View style={{ width: '100%', marginTop: spacing.lg, alignItems: 'center' }}>
-          <Text style={{ marginBottom: spacing.sm, fontSize: typography.fontSize.body, color: colors.text.secondary }}>
+          <Text style={{ marginBottom: spacing.xs, fontSize: typography.fontSize.body, color: colors.text.secondary }}>
             实时模式（Beta）：{realtime.isConnected ? '已连接' : (realtime.isConnecting ? '连接中...' : '未连接')}
+          </Text>
+          {/* 新增：提醒小字 */}
+          <Text style={{ marginBottom: spacing.sm, fontSize: typography.fontSize.small, color: colors.text.secondary }}>
+            请关闭实时模式后再切换语言。
           </Text>
           <TouchableOpacity 
             style={[styles.testButton, { backgroundColor: realtimeEnabled ? colors.accent.rust : colors.accent.green }]}
@@ -410,6 +501,7 @@ export default function TranslateScreen() {
           >
             <Text style={styles.testButtonText}>{realtimeEnabled ? '关闭实时模式' : '开启实时模式'}</Text>
           </TouchableOpacity>
+          {/* 删除“测试API”按钮 */}
           {/* 测试API按钮已移除 */}
         </View>
       </View>

@@ -86,6 +86,56 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
     setLastEvent(null);
   }, []);
 
+  // 构建兜底的实时口译指令（仅在后端未提供 instructions 时使用）
+  const buildFallbackInstructions = useCallback((src?: string, tgt?: string) => {
+    const source = src || 'auto';
+    const target = tgt || 'ja';
+    return (
+      `You are a simultaneous interpreter. Your ONLY job is to translate the speaker's speech from ${source} to ${target} in real time. ` +
+      `Do not chat, do not add explanations, do not ask questions. Keep sentences natural, concise, and conversational. ` +
+      `If input is already in ${target}, repeat it briefly with improved clarity in ${target}.`
+    );
+  }, []);
+
+  // 在数据通道上发送包含 instructions/voice/turn_detection 的 session.update（等待通道就绪，最多重试）
+  const sendSessionUpdate = useCallback((sessionFromServer?: any) => {
+    const session: any = {
+      input_audio_transcription: { model: 'gpt-4o-transcribe' },
+      temperature: 0.2,
+      top_p: 0.3,
+      presence_penalty: 0,
+      frequency_penalty: 0,
+    };
+    if (sessionFromServer && typeof sessionFromServer === 'object') {
+      Object.assign(session, sessionFromServer);
+    }
+    if (!session.instructions) {
+      session.instructions = buildFallbackInstructions(params?.sourceLangCode, params?.targetLangCode);
+    }
+    if (!session.voice) session.voice = 'alloy';
+    if (!session.turn_detection) {
+      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500 };
+    }
+
+    let attempts = 0;
+    const trySend = () => {
+      attempts += 1;
+      const ch = dataChannelRef.current as any;
+      if (ch && ch.readyState === 'open') {
+        try {
+          ch.send(JSON.stringify({ type: 'session.update', session }));
+        } catch (e) {
+          console.warn('发送 session.update 失败', e);
+        }
+        return;
+      }
+      if (attempts < 20) {
+        setTimeout(trySend, 100);
+      }
+    };
+    trySend();
+  }, [buildFallbackInstructions, params?.sourceLangCode, params?.targetLangCode]);
+
   const connectWeb = useCallback(async () => {
     setError(null);
     if (!isSupported) {
@@ -150,7 +200,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       dataChannelRef.current = localChannel;
       localChannel.onopen = () => {
         try {
-          // 仅更新会话配置；不再在连接时主动触发 response.create，避免“未说话先说话”和重复播报
+          // 连接建立时先下发基础配置；详细 instructions 稍后以服务器返回为准再覆盖
           localChannel.send(
             JSON.stringify({
               type: 'session.update',
@@ -224,7 +274,14 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       });
       if (!sdpResp.ok) throw new Error('建立实时连接失败（SDP 交换失败）');
       const answerSdp = await sdpResp.text();
+      // 防御：如果在等待服务端应答期间被外部 cleanup() 关闭，则不再调用 setRemoteDescription
+      if (!pcRef.current || (pcRef.current as any).signalingState === 'closed') {
+        throw new Error('连接已被中断，已取消本次协商');
+      }
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      // 10) 会话建立后，基于后端返回或本地兜底下发语言指令
+      sendSessionUpdate(ephData.session);
 
       setIsConnected(true);
     } catch (err: any) {
@@ -242,7 +299,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       setIsConnecting(false);
       connectingRef.current = false;
     }
-  }, [AGENT_SERVER_URL, cleanup, isSupported, params?.sourceLangCode, params?.targetLangCode]);
+  }, [AGENT_SERVER_URL, cleanup, isSupported, params?.sourceLangCode, params?.targetLangCode, sendSessionUpdate]);
 
   const connectNative = useCallback(async () => {
     setError(null);
@@ -383,7 +440,10 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       });
       if (!sdpResp.ok) throw new Error('建立实时连接失败（SDP 交换失败）');
       const answerSdp = await sdpResp.text();
-      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+      await (pc as any).setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      // 9) 下发语言与语音配置（优先后端 session，兜底本地构建）
+      sendSessionUpdate(ephData.session);
 
       setIsConnected(true);
     } catch (err: any) {
@@ -401,7 +461,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       setIsConnecting(false);
       connectingRef.current = false;
     }
-  }, [AGENT_SERVER_URL, cleanup, params?.sourceLangCode, params?.targetLangCode]);
+  }, [AGENT_SERVER_URL, cleanup, params?.sourceLangCode, params?.targetLangCode, sendSessionUpdate]);
 
   const connect = useCallback(async () => {
     // 并发保护：若正在连接中，直接忽略新的连接请求

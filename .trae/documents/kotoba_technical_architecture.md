@@ -140,7 +140,7 @@ POST /api/realtime/ephemeral
   "apiKey": "sk-temp-xxx",
   "session": {
     "id": "session_xxx",
-    "model": "gpt-4o-realtime-preview",
+    "model": "gpt-4o-mini-realtime-preview-2024-12-17",
     "voice": "verse"
   }
 }

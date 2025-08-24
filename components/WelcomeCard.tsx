@@ -28,6 +28,9 @@ export default function WelcomeCard({ remainingTime, onDismiss }: WelcomeCardPro
         <Text style={styles.description}>
           KotoBa 是您的极简主义 AI 旅行口译员。开启实时模式后，应用会自动聆听并进行双向同声传译，无需手动按下“开始/停止”。
         </Text>
+        <Text style={styles.tip}>
+          小提示：请选择说和听的语言。
+        </Text>
         
         <TouchableOpacity 
           style={styles.buttonContainer} 
@@ -96,6 +99,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.lineHeight.relaxed,
     marginBottom: spacing.xl,
     letterSpacing: 0.3,
+  },
+  tip: {
+    fontSize: typography.fontSize.small,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
   },
   buttonContainer: {
     borderRadius: borderRadius.lg,

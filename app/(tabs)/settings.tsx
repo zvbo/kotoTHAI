@@ -11,7 +11,7 @@ import { formatTime } from '@/utils/time';
 import { shadows } from '@/styles/designSystem';
 
 export default function SettingsScreen() {
-  const { userState, markAsRated, conversationMode, setConversationMode } = useAppContext();
+  const { userState, markAsRated, conversationMode, setConversationMode, resetUserTime } = useAppContext();
   const [showPurchaseOptions, setShowPurchaseOptions] = useState(false);
 
   // Handle review request
@@ -74,6 +74,20 @@ export default function SettingsScreen() {
           >
             <Text style={styles.addTimeButtonText}>添加时长</Text>
           </TouchableOpacity>
+
+          {/* 仅开发环境显示：一键重置免费时长到 10 分钟 */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={[styles.addTimeButton, { marginTop: 8, backgroundColor: Colors.secondary }]}
+              onPress={() => {
+                resetUserTime();
+                Alert.alert('已重置', '免费时长已重置为 10 分钟（仅开发环境可见）');
+              }}
+              testID="reset-time-button"
+            >
+              <Text style={styles.addTimeButtonText}>重置免费时长（测试）</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       
@@ -152,7 +166,7 @@ export default function SettingsScreen() {
           <Text style={styles.optionText}>
             {userState.hasRated 
               ? "感谢您为 KotoBa 评分！" 
-              : "为 KotoBa 评分并获得20分钟免费时长"}
+              : "为 KotoBa 评分并获得5分钟免费时长"}
           </Text>
         </TouchableOpacity>
       </View>

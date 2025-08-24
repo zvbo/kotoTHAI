@@ -1,31 +1,29 @@
-import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Gets a unique device identifier that persists across app installs
- * Uses native APIs when available, falls back to a generated ID for web
+ * 获取一个在本机持久化的设备唯一标识
+ * - 跨平台统一使用 AsyncStorage 存取
+ * - 若不存在则生成并保存
  */
 export async function getDeviceId(): Promise<string> {
-  // For now, generate a fallback ID for all platforms
-  // In a production app, you would use expo-application for native platforms
-  return generateFallbackId();
+  const STORAGE_KEY = 'kotoba_device_id';
+  try {
+    const existing = await AsyncStorage.getItem(STORAGE_KEY);
+    if (existing) return existing;
+
+    const newId = generateFallbackId();
+    await AsyncStorage.setItem(STORAGE_KEY, newId);
+    return newId;
+  } catch (e) {
+    // 兜底：即使存取失败也返回一个可用的随机ID，保证流程可继续
+    return generateFallbackId();
+  }
 }
 
 /**
- * Generates a fallback ID for platforms where native device IDs aren't available
+ * 生成一个足够随机的ID，用于缺省/兜底场景
  */
 function generateFallbackId(): string {
-  // Generate a random ID and store it in localStorage for web
-  if (Platform.OS === 'web') {
-    const storedId = localStorage.getItem('kotoba_device_id');
-    if (storedId) return storedId;
-    
-    const newId = Math.random().toString(36).substring(2, 15) + 
-                 Math.random().toString(36).substring(2, 15);
-    localStorage.setItem('kotoba_device_id', newId);
-    return newId;
-  }
-  
-  // For other platforms, just generate a random ID
-  return Math.random().toString(36).substring(2, 15) + 
-         Math.random().toString(36).substring(2, 15);
+  const randomPart = () => Math.random().toString(36).slice(2, 10);
+  return `${randomPart()}-${randomPart()}-${Date.now().toString(36)}`;
 }

@@ -4,6 +4,8 @@ import React from "react";
 
 import Colors from "@/constants/colors";
 import { AppProvider } from "@/context/AppContext";
+import { Link } from "expo-router";
+import { Pressable } from "react-native";
 
 export default function TabLayout() {
   return (
@@ -29,8 +31,16 @@ export default function TabLayout() {
           name="index"
           options={{
             title: "KotoBa",
-            tabBarLabel: "翻译",
+            tabBarLabel: "首页",
             tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+            // 顶部仅显示标题与一个进入设置的图标按钮
+            headerRight: () => (
+              <Link href="/(tabs)/settings" asChild>
+                <Pressable accessibilityLabel="前往设置" hitSlop={8} style={{ paddingHorizontal: 8 }}>
+                  <Settings size={20} color={Colors.textPrimary} />
+                </Pressable>
+              </Link>
+            ),
           }}
         />
         <Tabs.Screen

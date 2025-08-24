@@ -9,7 +9,8 @@ import { AgentBridge } from './realtime/agentBridge';
 
 const app = express();
 const httpServer = createServer(app);
-const PORT = process.env.PORT || 8787;
+const PORT = process.env.PORT || 8788;
+const HOST = '0.0.0.0';
 
 // 中间件
 app.use(cors());
@@ -45,8 +46,8 @@ app.get('/api/realtime/status', (req, res) => {
   });
 });
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 KotoBa Agent Server running on port ${PORT}`);
+httpServer.listen(Number(PORT), HOST, () => {
+  console.log(`🚀 KotoBa Agent Server running on http://${HOST}:${PORT}`);
   console.log(`🔗 WebRTC signaling ready`);
   console.log(`🤖 OpenAI Realtime API bridge ready`);
 });

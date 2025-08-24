@@ -127,7 +127,7 @@ ephemeralApp.post("/realtime/ephemeral", async (_req, res) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-realtime-preview",
+      model: "gpt-4o-mini-realtime-preview-2024-12-17",
       voice: "verse",
       // 可在此注入 instructions / tools schema / 通用参数
     }),
@@ -170,7 +170,7 @@ app.use(express.json({ limit: "2mb" }));
 app.use("/api", ephemeralApp);
 app.use("/api", toolApp);
 
-const PORT = process.env.PORT || 8787;
+const PORT = process.env.PORT || 8788;
 app.listen(PORT, () => console.log(`agent backend on :${PORT}`));
 ```
 
@@ -208,7 +208,7 @@ export async function connectRealtime(ephemeralKey: string): Promise<RealtimeCon
   await pc.setLocalDescription(offer);
 
   const baseUrl = "https://api.openai.com/v1/realtime");
-  const model = "gpt-4o-realtime-preview";
+  const model = "gpt-4o-mini-realtime-preview-2024-12-17";
 
   // 与 OpenAI Realtime 交换 SDP（WebRTC 握手）
   const sdpResp = await fetch(`${baseUrl}?model=${model}`, {
