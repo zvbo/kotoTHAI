@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import ConversationBubble from '@/components/ConversationBubble';
-import ReviewPrompt from '@/components/ReviewPrompt';
 // 移除手动录音模式的状态指示器
 // import StatusIndicator from '@/components/StatusIndicator';
 import TimeExpiredCard from '@/components/TimeExpiredCard';
@@ -19,7 +18,8 @@ import ToastBanner from '../../components/ToastBanner';
 
 
 // Constants for review reward time
-const REVIEW_REWARD_TIME = 5 * 60; // 5 minutes in seconds
+// 移除评分奖励常量
+// const REVIEW_REWARD_TIME = 5 * 60; // 5 minutes in seconds
 
 export default function TranslateScreen() {
   const {
@@ -31,12 +31,12 @@ export default function TranslateScreen() {
     isSessionActive,
     startSession,
     stopSession,
-    markAsRated,
+    // markAsRated, // removed
     acknowledgeFirstLaunch,
-    shouldPromptForReview,
+    // shouldPromptForReview, // removed
     addMessage,
     setStatus,
-    markLowTimePromptShown,
+    // markLowTimePromptShown, // removed
     swapLanguages,
     setSourceLanguage,
     setTargetLanguage,
@@ -84,13 +84,13 @@ export default function TranslateScreen() {
   const messagesListRef = useRef<FlatList>(null);
 
   // Check if we should show the review prompt
-  useEffect(() => {
-    if (shouldPromptForReview()) {
-      setShowReviewPrompt(true);
-      // 在弹出的同时，立即标记已显示，确保仅弹一次
-      markLowTimePromptShown();
-    }
-  }, [shouldPromptForReview, markLowTimePromptShown]);
+  // 已移除评分提示逻辑
+  // useEffect(() => {
+  //   if (shouldPromptForReview()) {
+  //     setShowReviewPrompt(true);
+  //     markLowTimePromptShown();
+  //   }
+  // }, [shouldPromptForReview, markLowTimePromptShown]);
 
   // 录音/转写流程：根据当前状态进行切换
   const handleStatusPress = useCallback(async () => {
@@ -151,18 +151,16 @@ export default function TranslateScreen() {
   // }, [isSessionActive]);
 
   // Handle review prompt
-  const handleRequestReview = useCallback(async () => {
-    setShowReviewPrompt(false);
-    
-    // Mark as rated first to ensure the user gets the reward
-    markAsRated();
-    
-    // Request review if available on this platform
-    if (Platform.OS !== 'web') {
-      // Store review functionality would be implemented here
-      console.log('Would request store review');
-    }
-  }, [markAsRated]);
+  // 移除评分请求回调
+  // const handleRequestReview = useCallback(async () => {
+  //   setShowReviewPrompt(false);
+  //   // Mark as rated first to ensure the user gets the reward
+  //   markAsRated();
+  //   // Request review if available on this platform
+  //   if (Platform.OS !== 'web') {
+  //     console.log('Would request store review');
+  //   }
+  // }, [markAsRated]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -430,13 +428,14 @@ export default function TranslateScreen() {
       )}
       
       {/* Review prompt */}
-      {showReviewPrompt && (
+      {/* 已移除：评分弹窗 */}
+      {/* {showReviewPrompt && (
         <ReviewPrompt 
           rewardTime={REVIEW_REWARD_TIME}
           onRequestReview={handleRequestReview}
           onDismiss={() => setShowReviewPrompt(false)}
         />
-      )}
+      )} */}
       
       {/* 语言固定为 中文 -> 日语，已移除语言选择 UI */}
       {/* 恢复语言选择 UI（仅UI展示，不改变功能，不允许交互） */}

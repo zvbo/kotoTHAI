@@ -6,6 +6,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AGENT_SERVER_URL": "http://192.168.1.51:8788"
+      },
       "ios": {
         "resourceClass": "m-medium"
       }

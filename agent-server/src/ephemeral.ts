@@ -86,8 +86,7 @@ router.post('/ephemeral', async (req, res) => {
       voice: 'alloy',
       instructions: buildInstructions(sourceLanguage, targetLanguage),
       // 低温采样，稳定输出
-      temperature: 0.2,
-      top_p: 0.3,
+      temperature: 0.7,
       // 说话检测：服务端 VAD，减少延迟
       turn_detection: {
         type: 'server_vad',

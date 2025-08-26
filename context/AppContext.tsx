@@ -8,19 +8,13 @@ import { getDeviceId } from '@/utils/device';
 
 // Initial free time in seconds (10 minutes)
 const INITIAL_FREE_TIME = 10 * 60;
-// Review reward time in seconds (5 minutes)
-const REVIEW_REWARD_TIME = 5 * 60;
-// Low time threshold to prompt for review (3 minutes)
-const LOW_TIME_THRESHOLD = 3 * 60;
 
 export const [AppProvider, useAppContext] = createContextHook(() => {
   // User state
   const [userState, setUserState] = useState<UserState>({
     deviceId: '',
     remainingTime: INITIAL_FREE_TIME,
-    hasRated: false,
     firstLaunch: true,
-    lowTimePromptShown: false,
   });
 
   // Language selection
@@ -49,8 +43,6 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
             ...parsedData,
             deviceId, // Always use the current device ID
             firstLaunch: false,
-            // 兼容旧数据：若不存在 lowTimePromptShown，默认 false
-            lowTimePromptShown: (parsedData as any).lowTimePromptShown ?? false,
           });
           console.log('Loaded existing user data:', parsedData);
         } else {
@@ -58,9 +50,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
           const newUserState: UserState = {
             deviceId,
             remainingTime: INITIAL_FREE_TIME,
-            hasRated: false,
             firstLaunch: true,
-            lowTimePromptShown: false,
           };
           setUserState(newUserState);
           await AsyncStorage.setItem('kotoba_user_state', JSON.stringify(newUserState));
@@ -134,29 +124,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     }));
   }, []);
 
-  const markAsRated = useCallback(() => {
-    setUserState(prev => {
-      if (prev.hasRated) return prev;
-      return {
-        ...prev,
-        hasRated: true,
-        remainingTime: prev.remainingTime + REVIEW_REWARD_TIME,
-      };
-    });
-  }, []);
-
   const acknowledgeFirstLaunch = useCallback(() => {
     setUserState(prev => ({
       ...prev,
       firstLaunch: false
-    }));
-  }, []);
-
-  // 新增：在显示低时长提示时打标，确保仅弹一次
-  const markLowTimePromptShown = useCallback(() => {
-    setUserState(prev => ({
-      ...prev,
-      lowTimePromptShown: true,
     }));
   }, []);
 
@@ -182,8 +153,6 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setUserState(prev => ({
       ...prev,
       remainingTime: seconds,
-      hasRated: false,
-      lowTimePromptShown: false,
     }));
   }, []);
 
@@ -217,12 +186,6 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setTargetLanguage(temp);
   }, [sourceLanguage, targetLanguage]);
 
-  // Check if user should be prompted for a review
-  const shouldPromptForReview = useCallback((): boolean => {
-    // 只要未评分，并且未显示过低时长提醒，且时间低于阈值，则允许弹出一次
-    return !userState.hasRated && !userState.lowTimePromptShown && userState.remainingTime <= LOW_TIME_THRESHOLD;
-  }, [userState.hasRated, userState.lowTimePromptShown, userState.remainingTime]);
-
   return {
     // State
     userState,
@@ -238,10 +201,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     
     // User management
     addTime,
-    markAsRated,
     acknowledgeFirstLaunch,
-    shouldPromptForReview,
-    markLowTimePromptShown,
     
     // Language management
     setSourceLanguage,

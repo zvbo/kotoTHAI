@@ -207,7 +207,6 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
               session: {
                 input_audio_transcription: { model: 'gpt-4o-transcribe' },
                 temperature: 0.2,
-                top_p: 0.3,
                 presence_penalty: 0,
                 frequency_penalty: 0,
               },
@@ -373,7 +372,6 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
               session: {
                 input_audio_transcription: { model: 'gpt-4o-transcribe' },
                 temperature: 0.2,
-                top_p: 0.3,
                 presence_penalty: 0,
                 frequency_penalty: 0,
               },

@@ -20,6 +20,8 @@
     "hooks/**/*.tsx",
     "types/**/*.ts",
     "types/**/*.d.ts",
+    "constants/**/*.ts",
+    "constants/**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
   ],

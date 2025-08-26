@@ -2,61 +2,57 @@ import { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ExternalLink, HelpCircle, Info, Star } from 'lucide-react-native';
 import * as StoreReview from 'expo-store-review';
-import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
+// 移除外部浏览器/深链，改用应用内路由
+// import * as WebBrowser from 'expo-web-browser';
+// import * as Linking from 'expo-linking';
+import { router } from 'expo-router';
 
 import Colors from '@/constants/colors';
 import { useAppContext } from '@/context/AppContext';
 import { formatTime } from '@/utils/time';
 import { shadows } from '@/styles/designSystem';
+import { PURCHASE_OPTIONS, type PurchaseOptionItem } from '../../constants/purchases';
 
 export default function SettingsScreen() {
-  const { userState, markAsRated, conversationMode, setConversationMode, resetUserTime } = useAppContext();
+  const { userState, resetUserTime, addTime } = useAppContext();
   const [showPurchaseOptions, setShowPurchaseOptions] = useState(false);
 
-  // Handle review request
+  // 合规的评分请求：不承诺奖励，不修改用户状态
   const handleRequestReview = useCallback(async () => {
-    if (userState.hasRated) {
-      Alert.alert(
-        "已评价",
-        "您已经获得了评价KotoBa的免费时长奖励。感谢您的支持！"
-      );
-      return;
-    }
-    
-    // Mark as rated first to ensure the user gets the reward
-    markAsRated();
-    
-    // Request review if available on this platform
-    if (Platform.OS !== 'web' && await StoreReview.hasAction()) {
-      await StoreReview.requestReview();
-    } else {
-      Alert.alert(
-        "谢谢！",
-        "您的免费时长已添加。此平台不支持评价功能。"
-      );
-    }
-  }, [userState.hasRated, markAsRated]);
-
-  // Mock purchase functions
-  const handlePurchase = useCallback((hours: number, price: string) => {
-    Alert.alert(
-      "购买功能暂不可用",
-      "这是一个演示应用。此版本未实现应用内购买功能。",
-      [{ text: "确定" }]
-    );
-  }, []);
-
-  // Open external links
-  const openLink = useCallback(async (url: string) => {
     try {
-      if (await Linking.canOpenURL(url)) {
-        await WebBrowser.openBrowserAsync(url);
+      if (Platform.OS !== 'web' && (await StoreReview.hasAction())) {
+        await StoreReview.requestReview();
+      } else {
+        Alert.alert('感谢支持', '您的支持对我们非常重要！');
       }
-    } catch (error) {
-      console.error('Error opening link:', error);
+    } catch (e) {
+      Alert.alert('暂不可用', '当前无法打开评分页面，请稍后再试');
     }
   }, []);
+
+  // 测试版购买：根据选项 id 增加相应分钟数，可叠加
+  const handlePurchase = useCallback((id: PurchaseOptionItem['id'], durationLabel: string, price: string) => {
+    let seconds = 0;
+    switch (id) {
+      case '10m':
+        seconds = 10 * 60; // 10 分钟
+        break;
+      case '30m':
+        seconds = 30 * 60; // 30 分钟
+        break;
+      case '2h':
+        seconds = 120 * 60; // 2 小时 = 120 分钟
+        break;
+      default:
+        seconds = 0;
+    }
+
+    if (seconds > 0) {
+      addTime(seconds);
+      setShowPurchaseOptions(false);
+      Alert.alert('已添加时长（测试）', `已为您增加 ${durationLabel}（${price}）。您可以多次购买叠加使用。`, [{ text: '好的' }]);
+    }
+  }, [addTime]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -75,7 +71,6 @@ export default function SettingsScreen() {
             <Text style={styles.addTimeButtonText}>添加时长</Text>
           </TouchableOpacity>
 
-          {/* 仅开发环境显示：一键重置免费时长到 10 分钟 */}
           {__DEV__ && (
             <TouchableOpacity
               style={[styles.addTimeButton, { marginTop: 8, backgroundColor: Colors.secondary }]}
@@ -90,36 +85,8 @@ export default function SettingsScreen() {
           )}
         </View>
       </View>
-      
-      {/* Conversation display mode */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>显示模式</Text>
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[
-              styles.segmentItem,
-              (conversationMode !== 'full') && styles.segmentItemActive,
-            ]}
-            onPress={() => setConversationMode('translation_only')}
-            testID="mode-translation-only"
-          >
-            <Text style={[styles.segmentText, (conversationMode !== 'full') && styles.segmentTextActive]}>仅译文</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.segmentItem,
-              (conversationMode === 'full') && styles.segmentItemActive,
-            ]}
-            onPress={() => setConversationMode('full')}
-            testID="mode-full"
-          >
-            <Text style={[styles.segmentText, (conversationMode === 'full') && styles.segmentTextActive]}>原文 + 译文</Text>
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.hintText}>
-          仅译文：界面更简洁，适合边走边用；完整模式：同时显示原文与译文，便于学习和核对。
-        </Text>
-      </View>
+
+      {/* 显示模式模块已按产品要求下线（web / iOS 均不显示） */}
       
       {/* Purchase options */}
       {showPurchaseOptions && (
@@ -127,27 +94,16 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>购买选项</Text>
           
           <View style={styles.purchaseOptions}>
-            <PurchaseOption
-              title="咖啡时光包"
-              hours={2}
-              price="¥20"
-              onPress={() => handlePurchase(2, "¥20")}
-            />
-            
-            <PurchaseOption
-              title="商务包"
-              hours={8}
-              price="¥40"
-              onPress={() => handlePurchase(8, "¥40")}
-              featured
-            />
-            
-            <PurchaseOption
-              title="深度旅行包"
-              hours={20}
-              price="¥100"
-              onPress={() => handlePurchase(20, "¥100")}
-            />
+            {PURCHASE_OPTIONS.map((opt: PurchaseOptionItem) => (
+              <PurchaseOption
+                key={opt.id}
+                title={opt.title}
+                durationLabel={opt.durationLabel}
+                price={opt.priceDisplay}
+                onPress={() => handlePurchase(opt.id, opt.durationLabel, opt.priceDisplay)}
+                featured={opt.featured}
+              />
+            ))}
           </View>
         </View>
       )}
@@ -159,15 +115,10 @@ export default function SettingsScreen() {
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={handleRequestReview}
-          disabled={userState.hasRated}
           testID="rate-app-button"
         >
           <Star size={20} color={Colors.secondary} />
-          <Text style={styles.optionText}>
-            {userState.hasRated 
-              ? "感谢您为 KotoBa 评分！" 
-              : "为 KotoBa 评分并获得5分钟免费时长"}
-          </Text>
+          <Text style={styles.optionText}>为 KotoBa 评分</Text>
         </TouchableOpacity>
       </View>
       
@@ -177,7 +128,7 @@ export default function SettingsScreen() {
         
         <TouchableOpacity 
           style={styles.optionButton}
-          onPress={() => openLink("https://example.com/privacy")}
+          onPress={() => router.push('/about/privacy')}
         >
           <Info size={20} color={Colors.primary} />
           <Text style={styles.optionText}>隐私政策</Text>
@@ -186,7 +137,7 @@ export default function SettingsScreen() {
         
         <TouchableOpacity 
           style={styles.optionButton}
-          onPress={() => openLink("https://example.com/terms")}
+          onPress={() => router.push('/about/terms')}
         >
           <Info size={20} color={Colors.primary} />
           <Text style={styles.optionText}>服务条款</Text>
@@ -195,7 +146,7 @@ export default function SettingsScreen() {
         
         <TouchableOpacity 
           style={styles.optionButton}
-          onPress={() => openLink("https://example.com/help")}
+          onPress={() => router.push('/about/support')}
         >
           <HelpCircle size={20} color={Colors.primary} />
           <Text style={styles.optionText}>帮助与支持</Text>
@@ -213,13 +164,13 @@ export default function SettingsScreen() {
 
 type PurchaseOptionProps = {
   title: string;
-  hours: number;
+  durationLabel: string;
   price: string;
   onPress: () => void;
   featured?: boolean;
 };
 
-function PurchaseOption({ title, hours, price, onPress, featured = false }: PurchaseOptionProps) {
+function PurchaseOption({ title, durationLabel, price, onPress, featured = false }: PurchaseOptionProps) {
   return (
     <TouchableOpacity 
       style={[
@@ -230,7 +181,7 @@ function PurchaseOption({ title, hours, price, onPress, featured = false }: Purc
     >
       {featured && <View style={styles.featuredBadge}><Text style={styles.featuredText}>最超值</Text></View>}
       <Text style={[styles.purchaseTitle, featured && styles.featuredTitle]}>{title}</Text>
-      <Text style={styles.purchaseHours}>{hours} 小时</Text>
+      <Text style={styles.purchaseHours}>{durationLabel}</Text>
       <Text style={[styles.purchasePrice, featured && styles.featuredPrice]}>{price}</Text>
     </TouchableOpacity>
   );
@@ -281,7 +232,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  // === 新增：显示模式分段控件 ===
+  // （样式中保留 segment/hint 等旧样式以兼容将来的需求，但已不再渲染）
   segment: {
     flexDirection: 'row',
     backgroundColor: Colors.backgroundSecondary,

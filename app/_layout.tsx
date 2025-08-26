@@ -13,6 +13,9 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="about/privacy" options={{ title: '隐私政策' }} />
+      <Stack.Screen name="about/terms" options={{ title: '服务条款' }} />
+      <Stack.Screen name="about/support" options={{ title: '帮助与支持' }} />
     </Stack>
   );
 }
