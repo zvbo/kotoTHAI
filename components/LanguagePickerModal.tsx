@@ -1,6 +1,6 @@
 import { FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { ALL_LANGUAGES } from '@/constants/languages';
 import { Language } from '@/types';
@@ -38,7 +38,7 @@ export default function LanguagePickerModal({
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={colors.text.secondary} />
+              <MaterialCommunityIcons name="close" size={20} color="#333" />
             </TouchableOpacity>
           </View>
           

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ExternalLink, HelpCircle, Info, Star } from 'lucide-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as StoreReview from 'expo-store-review';
 // 移除外部浏览器/深链，改用应用内路由
 // import * as WebBrowser from 'expo-web-browser';
@@ -79,7 +79,7 @@ export default function SettingsScreen() {
                 Alert.alert('已重置', '免费时长已重置为 10 分钟（仅开发环境可见）');
               }}
               testID="reset-time-button"
-            >
+           >
               <Text style={styles.addTimeButtonText}>重置免费时长（测试）</Text>
             </TouchableOpacity>
           )}
@@ -117,7 +117,7 @@ export default function SettingsScreen() {
           onPress={handleRequestReview}
           testID="rate-app-button"
         >
-          <Star size={20} color={Colors.secondary} />
+          <MaterialCommunityIcons name="star-outline" size={20} color={Colors.secondary} />
           <Text style={styles.optionText}>为 KotoBa 评分</Text>
         </TouchableOpacity>
       </View>
@@ -130,27 +130,27 @@ export default function SettingsScreen() {
           style={styles.optionButton}
           onPress={() => router.push('/about/privacy')}
         >
-          <Info size={20} color={Colors.primary} />
+          <MaterialCommunityIcons name="information-outline" size={20} color={Colors.primary} />
           <Text style={styles.optionText}>隐私政策</Text>
-          <ExternalLink size={16} color={Colors.textSecondary} style={styles.externalIcon} />
+          <MaterialCommunityIcons name="open-in-new" size={16} color={Colors.textSecondary} style={styles.externalIcon} />
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => router.push('/about/terms')}
         >
-          <Info size={20} color={Colors.primary} />
+          <MaterialCommunityIcons name="information-outline" size={20} color={Colors.primary} />
           <Text style={styles.optionText}>服务条款</Text>
-          <ExternalLink size={16} color={Colors.textSecondary} style={styles.externalIcon} />
+          <MaterialCommunityIcons name="open-in-new" size={16} color={Colors.textSecondary} style={styles.externalIcon} />
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => router.push('/about/support')}
         >
-          <HelpCircle size={20} color={Colors.primary} />
+          <MaterialCommunityIcons name="help-circle-outline" size={20} color={Colors.primary} />
           <Text style={styles.optionText}>帮助与支持</Text>
-          <ExternalLink size={16} color={Colors.textSecondary} style={styles.externalIcon} />
+          <MaterialCommunityIcons name="open-in-new" size={16} color={Colors.textSecondary} style={styles.externalIcon} />
         </TouchableOpacity>
       </View>
       

@@ -7,7 +7,7 @@ const openai = new OpenAI({
 });
 
 // 单向同传提示词（Listen -> Speak）
-// 支持: zh | en | ja
+// 支持: zh | en | th
 function buildInstructions(listen?: string, speak?: string) {
   const code = (x?: string) => (x || 'zh').toLowerCase();
   const L = code(listen);   // 源语言（Listen）
@@ -17,25 +17,25 @@ function buildInstructions(listen?: string, speak?: string) {
   const NAME: Record<string, string> = {
     zh: 'Chinese',
     en: 'English',
-    ja: 'Japanese',
+    th: 'Thai',
   };
 
   // 语言本地显示名（可选，用于示例区/风格说明）
   const LOCAL: Record<string, string> = {
     zh: '中文',
     en: 'English',
-    ja: '日本語',
+    th: 'ไทย',
   };
 
   // 目标语言风格规则（可按需增改）
   const STYLE: Record<string, string> = {
     zh: 'Use natural, conversational Mainland Chinese. Avoid internet slang unless present in the source.',
     en: 'Use natural, idiomatic spoken English. Avoid over-formality.',
-    ja: 'Use natural. Keep sentences concise and natural.',
+    th: 'Use natural, conversational Thai. Keep sentences concise and avoid overly formal written style.',
   };
 
   const src = NAME[L] || 'Chinese';
-  const tgt = NAME[S] || 'Japanese';
+  const tgt = NAME[S] || 'Thai';
   const tgtStyle = STYLE[S] || STYLE['en'];
 
   // 单向翻译：仅当输入主要是源语言 L 时才翻译为 S

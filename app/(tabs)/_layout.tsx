@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { Home, Settings } from "lucide-react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 
 import Colors from "@/constants/colors";
@@ -30,14 +30,16 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "KotoBa",
+            title: "KotoTHAI",
             tabBarLabel: "首页",
-            tabBarIcon: ({ color }) => <Home size={22} color={color} />,
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="home-outline" size={22} color={color} />
+            ),
             // 顶部仅显示标题与一个进入设置的图标按钮
             headerRight: () => (
               <Link href="/(tabs)/settings" asChild>
                 <Pressable accessibilityLabel="前往设置" hitSlop={8} style={{ paddingHorizontal: 8 }}>
-                  <Settings size={20} color={Colors.textPrimary} />
+                  <MaterialCommunityIcons name="cog-outline" size={20} color={Colors.textPrimary} />
                 </Pressable>
               </Link>
             ),
@@ -47,7 +49,9 @@ export default function TabLayout() {
           name="settings"
           options={{
             title: "设置",
-            tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="cog-outline" size={22} color={color} />
+            ),
           }}
         />
       </Tabs>

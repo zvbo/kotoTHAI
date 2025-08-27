@@ -89,7 +89,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
   // 构建兜底的实时口译指令（仅在后端未提供 instructions 时使用）
   const buildFallbackInstructions = useCallback((src?: string, tgt?: string) => {
     const source = src || 'auto';
-    const target = tgt || 'ja';
+    const target = tgt || 'th';
     return (
       `You are a simultaneous interpreter. Your ONLY job is to translate the speaker's speech from ${source} to ${target} in real time. ` +
       `Do not chat, do not add explanations, do not ask questions. Keep sentences natural, concise, and conversational. ` +

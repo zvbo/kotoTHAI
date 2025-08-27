@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "KotoBa (言叶) - 极简主义AI旅游口译应用",
-    "slug": "kotoba",
+    "name": "KotoTHAI",
+    "slug": "koto-thai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.zvbo.kotoba.dev",
+      "bundleIdentifier": "com.zvbo.kotoTHAI.dev",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.kotoba",
+      "package": "app.rork.kotoTHAI",
       "permissions": [
         "RECORD_AUDIO",
         "android.permission.RECORD_AUDIO",

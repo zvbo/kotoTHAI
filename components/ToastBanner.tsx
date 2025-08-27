@@ -36,7 +36,7 @@ export default function ToastBanner({ message, type = 'info', duration = 2200, o
   const borderCol = type === 'info' ? colors.border.light : 'transparent';
 
   return (
-    <Animated.View style={[styles.wrapper, { transform: [{ translateY }], opacity }]}>      
+    <Animated.View pointerEvents="box-none" style={[styles.wrapper, { transform: [{ translateY }], opacity }]}>      
       <View style={[styles.toast, { backgroundColor: background, borderColor: borderCol }]}>        
         <Text style={[styles.text, { color: textColor }]}>{message}</Text>
       </View>

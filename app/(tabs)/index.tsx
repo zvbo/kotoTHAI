@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 
 import ConversationBubble from '@/components/ConversationBubble';
 // 移除手动录音模式的状态指示器
@@ -13,7 +14,7 @@ import useTranslation from '@/hooks/useTranslation';
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
 import useRealtime from '@/hooks/useRealtime';
 import LanguageSelector from '@/components/LanguageSelector';
-import LanguagePickerModal from '@/components/LanguagePickerModal';
+// import LanguagePickerModal from '@/components/LanguagePickerModal';
 import ToastBanner from '../../components/ToastBanner';
 
 
@@ -51,6 +52,10 @@ export default function TranslateScreen() {
   const realtime = useRealtime({ sourceLangCode: sourceLanguage.code, targetLangCode: targetLanguage.code });
   const [realtimeEnabled, setRealtimeEnabled] = useState(false);
 
+  // 语言下拉显示状态（替换 Modal）
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [showTargetPicker, setShowTargetPicker] = useState(false);
+
   // 稳定引用 start/stop，避免依赖变化导致的循环调用
   const startSessionRef = useRef(startSession);
   const stopSessionRef = useRef(stopSession);
@@ -72,25 +77,11 @@ export default function TranslateScreen() {
   const [rtSrcBuffer, setRtSrcBuffer] = useState('');
   const [rtTgtBuffer, setRtTgtBuffer] = useState('');
 
-  // Local state for modals
-  const [showSourcePicker, setShowSourcePicker] = useState(false);
-  const [showTargetPicker, setShowTargetPicker] = useState(false);
-  const [showReviewPrompt, setShowReviewPrompt] = useState(false);
-  
   // Toast 状态（非模态小条提示）
   const [toast, setToast] = useState<null | { message: string; type: 'info' | 'success' | 'error'; key: number }>(null);
   const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => setToast({ message, type, key: Date.now() });
   // Ref for messages list
   const messagesListRef = useRef<FlatList>(null);
-
-  // Check if we should show the review prompt
-  // 已移除评分提示逻辑
-  // useEffect(() => {
-  //   if (shouldPromptForReview()) {
-  //     setShowReviewPrompt(true);
-  //     markLowTimePromptShown();
-  //   }
-  // }, [shouldPromptForReview, markLowTimePromptShown]);
 
   // 录音/转写流程：根据当前状态进行切换
   const handleStatusPress = useCallback(async () => {
@@ -142,41 +133,6 @@ export default function TranslateScreen() {
       setStatus('error');
     }
   }, [isSessionActive, isRecording, startSession, startRecording, stopRecording, getAudioFile, transcribeAudio, createMessage, addMessage, sourceLanguage, targetLanguage, setStatus, translationError, realtimeEnabled]);
-
-  // Handle language selection
-  // const handleTargetLanguagePress = useCallback(() => {
-  //   if (!isSessionActive) {
-  //     setShowTargetPicker(true);
-  //   }
-  // }, [isSessionActive]);
-
-  // Handle review prompt
-  // 移除评分请求回调
-  // const handleRequestReview = useCallback(async () => {
-  //   setShowReviewPrompt(false);
-  //   // Mark as rated first to ensure the user gets the reward
-  //   markAsRated();
-  //   // Request review if available on this platform
-  //   if (Platform.OS !== 'web') {
-  //     console.log('Would request store review');
-  //   }
-  // }, [markAsRated]);
-
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0 && messagesListRef.current) {
-      messagesListRef.current.scrollToEnd({ animated: true });
-    }
-  }, [messages]);
-
-  // Navigate to settings/purchase screen
-  const handlePurchase = useCallback(() => {
-    // This would navigate to the purchase screen in the settings tab
-    // For now, we'll just log it
-    console.log('Navigate to purchase screen');
-  }, []);
-
-  // 已移除：测试API按钮与相关函数
 
   // 实时模式切换与连接
   useEffect(() => {
@@ -282,6 +238,15 @@ export default function TranslateScreen() {
       // 已由上方过渡检测处理，这里不再做任何操作以避免竞态
     }
   }, [isSessionActive, realtimeEnabled]);
+
+  // 购买时间：跳转到设置页面（可在其中处理购买/充值），并在需要时先断开实时模式
+  const handlePurchase = useCallback(() => {
+    if (realtimeEnabled) {
+      try { realtime.disconnect(); } catch {}
+      setRealtimeEnabled(false);
+    }
+    router.push('/settings');
+  }, [realtime, realtimeEnabled]);
 
   // 提取 Realtime 事件中的文本增量
   const extractRealtimeText = useCallback((ev: any): string | null => {
@@ -427,46 +392,60 @@ export default function TranslateScreen() {
         />
       )}
       
-      {/* Review prompt */}
-      {/* 已移除：评分弹窗 */}
-      {/* {showReviewPrompt && (
-        <ReviewPrompt 
-          rewardTime={REVIEW_REWARD_TIME}
-          onRequestReview={handleRequestReview}
-          onDismiss={() => setShowReviewPrompt(false)}
-        />
-      )} */}
-      
-      {/* 语言固定为 中文 -> 日语，已移除语言选择 UI */}
-      {/* 恢复语言选择 UI（仅UI展示，不改变功能，不允许交互） */}
+      {/* 语言选择：按钮+内联下拉 */}
       <LanguageSelector
         sourceLanguage={sourceLanguage}
         targetLanguage={targetLanguage}
-        onSourcePress={() => setShowSourcePicker(true)}
-        onTargetPress={() => setShowTargetPicker(true)}
-        onSwapPress={() => swapLanguages()}
+        onSourcePress={() => {
+          console.log('[index.tsx] onSourcePress triggered.');
+          if (realtime.isConnected || realtime.isConnecting) {
+            setToast({ key: Date.now(), message: '请先关闭实时模式再切换语言', type: 'info' });
+            return;
+          }
+          setShowSourcePicker((v) => {
+            const next = !v;
+            console.log(`[index.tsx] Toggling source picker. Current: ${v}, Next: ${next}`);
+            if (next) setShowTargetPicker(false);
+            return next;
+          });
+        }}
+        onTargetPress={() => {
+          console.log('[index.tsx] onTargetPress triggered.');
+          if (realtime.isConnected || realtime.isConnecting) {
+            setToast({ key: Date.now(), message: '请先关闭实时模式再切换语言', type: 'info' });
+            return;
+          }
+          setShowTargetPicker((v) => {
+            const next = !v;
+            console.log(`[index.tsx] Toggling target picker. Current: ${v}, Next: ${next}`);
+            if (next) setShowSourcePicker(false);
+            return next;
+          });
+        }}
+        onSwapPress={() => {
+          console.log('[index.tsx] onSwapPress triggered.');
+          // 交换语言并关闭下拉
+          swapLanguages();
+          setShowSourcePicker(false);
+          setShowTargetPicker(false);
+        }}
         disabled={false}
+        showSourcePicker={showSourcePicker}
+        showTargetPicker={showTargetPicker}
+        onSelectSource={(lang) => { 
+          console.log(`[index.tsx] onSelectSource triggered with language: ${lang.name}`);
+          setSourceLanguage(lang); 
+          setShowSourcePicker(false); 
+          setShowTargetPicker(false); 
+        }}
+        onSelectTarget={(lang) => { 
+          console.log(`[index.tsx] onSelectTarget triggered with language: ${lang.name}`);
+          setTargetLanguage(lang); 
+          setShowTargetPicker(false); 
+          setShowSourcePicker(false); 
+        }}
       />
 
-      <LanguagePickerModal
-        visible={showSourcePicker}
-        selectedLanguage={sourceLanguage}
-        onSelect={(lang) => {
-          setSourceLanguage(lang);
-        }}
-        onClose={() => setShowSourcePicker(false)}
-        title="选择听的语言"
-      />
-
-      <LanguagePickerModal
-        visible={showTargetPicker}
-        selectedLanguage={targetLanguage}
-        onSelect={(lang) => {
-          setTargetLanguage(lang);
-        }}
-        onClose={() => setShowTargetPicker(false)}
-        title="选择说的语言"
-      />
       {/* Conversation area */}
       <View style={styles.conversationContainer}>
         {messages.length > 0 ? (
