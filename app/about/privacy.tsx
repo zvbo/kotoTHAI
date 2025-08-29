@@ -8,7 +8,7 @@ export default function PrivacyPolicyScreen() {
       <Text style={styles.lastUpdated}>最后更新：2024年12月</Text>
       
       <Text style={styles.content}>
-        朱媛媛（以下简称"我们"或"开发者"）开发的KotoBa应用程序（以下简称"本应用"）重视用户隐私保护。本隐私政策说明我们如何收集、使用和保护您在使用本应用时的个人信息。
+        朱媛媛（以下简称"我们"或"开发者"）开发的kotoTHAI应用程序（以下简称"本应用"）重视用户隐私保护。本隐私政策说明我们如何收集、使用和保护您在使用本应用时的个人信息。
       </Text>
 
       <View style={styles.section}>
@@ -94,7 +94,7 @@ export default function PrivacyPolicyScreen() {
       </View>
       
       <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2024 朱媛媛 - KotoBa</Text>
+        <Text style={styles.footerText}>© 2024 朱媛媛 - kotoTHAI</Text>
       </View>
     </ScrollView>
   );

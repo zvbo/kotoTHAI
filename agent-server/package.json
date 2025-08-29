@@ -1,7 +1,7 @@
 {
   "name": "agent-server",
   "version": "1.0.0",
-  "description": "KotoBa Agent Server with OpenAI Realtime API integration",
+  "description": "kotoTHAI Agent Server with OpenAI Realtime API integration",
   "type": "commonjs",
   "main": "dist/index.js",
   "scripts": {

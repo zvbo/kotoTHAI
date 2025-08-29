@@ -1,4 +1,4 @@
-// KotoBa color palette - inspired by vintage Japanese aesthetics
+// kotoTHAI color palette - inspired by vintage Japanese aesthetics
 const Colors = {
   // Primary colors
   background: "#F5F2E9", // Warm cream/rice paper color

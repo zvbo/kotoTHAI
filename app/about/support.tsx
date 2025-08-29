@@ -31,7 +31,7 @@ export default function HelpSupportScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2024 朱媛媛 - KotoBa</Text>
+        <Text style={styles.footerText}>© 2024 朱媛媛 - kotoTHAI</Text>
       </View>
     </ScrollView>
   );

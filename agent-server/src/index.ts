@@ -47,7 +47,7 @@ app.get('/api/realtime/status', (req, res) => {
 });
 
 httpServer.listen(Number(PORT), HOST, () => {
-  console.log(`🚀 KotoBa Agent Server running on http://${HOST}:${PORT}`);
+  console.log(`🚀 kotoTHAI Agent Server running on http://${HOST}:${PORT}`);
   console.log(`🔗 WebRTC signaling ready`);
   console.log(`🤖 OpenAI Realtime API bridge ready`);
 });

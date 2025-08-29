@@ -106,7 +106,7 @@ export const getWeather = tool({
 });
 
 export const voiceAgent = new Agent({
-  name: "KotoBa",
+  name: "kotoTHAI",
   instructions: "你是礼貌、简洁的中⇄日口译助手，仅按目标语输出。",
   tools: [getWeather],
 });

@@ -1,10 +1,10 @@
-# KotoBa 实时翻译架构与关键文件说明
+# kotoTHAI 实时翻译架构与关键文件说明
 
 面向非技术同学的可读版本，帮助你快速理解：App 的语音同传是如何工作的、哪些文件会影响翻译效果、出现问题如何排查，以及要改哪里。
 
 ## 一、整体架构（两条路径）
 
-KotoBa 支持两种实时语音通路：
+kotoTHAI 支持两种实时语音通路：
 
 - 路径 A：前端直连 OpenAI Realtime（当前 iOS App 默认方案，延迟更低）
   1) App 先向我们的 Agent Server 请求一次性“临时密钥”（ephemeral key）
@@ -16,7 +16,7 @@ KotoBa 支持两种实时语音通路：
   2) Agent Server 再代表 App 连接 OpenAI Realtime
   3) 翻译规则（提示词）来自 AgentBridge（仅在桥接模式生效）
 
-配套架构图见同目录 SVG：KotoBa_Realtime_Architecture.svg
+配套架构图见同目录 SVG：kotoTHAI_Realtime_Architecture.svg
 
 ## 二、真正影响“翻译行为/功能”的关键文件
 

@@ -1,4 +1,4 @@
-# KotoBa项目技术架构文档
+# kotoTHAI项目技术架构文档
 
 ## 1. 架构设计
 
@@ -340,11 +340,11 @@ export const translateText = tool({
   }
 });
 
-// KotoBa Agent定义
+// kotoTHAI Agent定义
 export const kotobaAgent = new Agent({
-  name: 'KotoBa',
+  name: 'kotoTHAI',
   instructions: `
-    你是KotoBa，一个专业的中日英三语口译助手。
+    你是kotoTHAI，一个专业的中日英三语口译助手。
     
     核心原则：
     1. 提供准确、自然的翻译

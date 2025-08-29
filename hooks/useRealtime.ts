@@ -114,7 +114,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
     }
     if (!session.voice) session.voice = 'alloy';
     if (!session.turn_detection) {
-      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 500 };
+      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 2000 };
     }
 
     let attempts = 0;
@@ -156,7 +156,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
         const name = e?.name || e?.code || '';
         let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
         if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          msg = '麦克风权限被拒绝，请在系统设置中为 KotoBa 开启麦克风权限后重试';
+          msg = '麦克风权限被拒绝，请在系统设置中为 kotoTHAI 开启麦克风权限后重试';
         } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
           msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
         }
@@ -275,7 +275,8 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       const answerSdp = await sdpResp.text();
       // 防御：如果在等待服务端应答期间被外部 cleanup() 关闭，则不再调用 setRemoteDescription
       if (!pcRef.current || (pcRef.current as any).signalingState === 'closed') {
-        throw new Error('连接已被中断，已取消本次协商');
+        console.warn('连接在 SDP 协商期间被中断，跳过 setRemoteDescription');
+        return; // 静默返回，不抛出错误
       }
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
@@ -319,6 +320,8 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
         throw new Error('未找到原生 WebRTC 能力：请使用自定义 Dev Client 运行，或重新构建包含 react-native-webrtc 的客户端');
       }
 
+      console.log('✅ WebRTC 原生模块检测成功');
+
       // 启用外放：使用 InCallManager 强制扬声器输出，让系统音量可控
       try {
         const { default: InCallManager } = await import('react-native-incall-manager');
@@ -337,7 +340,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
         const name = e?.name || e?.code || '';
         let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
         if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          msg = '麦克风权限被拒绝，请在系统设置中为 KotoBa 开启麦克风权限后重试';
+          msg = '麦克风权限被拒绝，请在系统设置中为 kotoTHAI 开启麦克风权限后重试';
         } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
           msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
         }
@@ -438,6 +441,12 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       });
       if (!sdpResp.ok) throw new Error('建立实时连接失败（SDP 交换失败）');
       const answerSdp = await sdpResp.text();
+      
+      // 防御：如果在等待服务端应答期间被外部 cleanup() 关闭，则不再调用 setRemoteDescription
+      if (!pcRef.current || (pcRef.current as any).signalingState === 'closed') {
+        console.warn('连接在 SDP 协商期间被中断（Native），跳过 setRemoteDescription');
+        return; // 静默返回，不抛出错误
+      }
       await (pc as any).setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
       // 9) 下发语言与语音配置（优先后端 session，兜底本地构建）

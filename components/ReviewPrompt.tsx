@@ -17,7 +17,7 @@ export default function ReviewPrompt({
   return (
     <View style={styles.overlay}>
       <View style={styles.card}>
-        <Text style={styles.title}>喜欢 KotoBa 吗？</Text>
+        <Text style={styles.title}>喜欢 kotoTHAI 吗？</Text>
         
         <Text style={styles.message}>
           留下评价并获得额外的 {formatTime(rewardTime)} 免费翻译时间。

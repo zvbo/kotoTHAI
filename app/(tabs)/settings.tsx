@@ -110,7 +110,7 @@ export default function SettingsScreen() {
       
       {/* Rate app */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>支持 KotoBa</Text>
+        <Text style={styles.sectionTitle}>支持 kotoTHAI</Text>
         
         <TouchableOpacity 
           style={styles.optionButton}
@@ -118,7 +118,7 @@ export default function SettingsScreen() {
           testID="rate-app-button"
         >
           <MaterialCommunityIcons name="star-outline" size={20} color={Colors.secondary} />
-          <Text style={styles.optionText}>为 KotoBa 评分</Text>
+          <Text style={styles.optionText}>为 kotoTHAI 评分</Text>
         </TouchableOpacity>
       </View>
       
@@ -156,7 +156,7 @@ export default function SettingsScreen() {
       
       {/* App version */}
       <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>KotoBa v1.0.0</Text>
+        <Text style={styles.versionText}>kotoTHAI v1.0.0</Text>
       </View>
     </ScrollView>
   );

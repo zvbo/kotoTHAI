@@ -64,6 +64,9 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
         if (savedSourceLang) setSourceLanguage(JSON.parse(savedSourceLang));
         if (savedTargetLang) setTargetLanguage(JSON.parse(savedTargetLang));
         
+        // Mark as initialized after loading preferences
+        setIsInitialized(true);
+        
       } catch (error) {
         console.error('Error initializing user:', error);
         // Fallback to default state if there's an error
@@ -81,16 +84,22 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     }
   }, [userState]);
 
-  // Save language preferences when they change
-  useEffect(() => {
-    AsyncStorage.setItem('kotoba_source_language', JSON.stringify(sourceLanguage))
-      .catch(err => console.error('Error saving source language:', err));
-  }, [sourceLanguage]);
+  // Save language preferences when they change (with initialization flag to prevent initial save)
+  const [isInitialized, setIsInitialized] = useState(false);
   
   useEffect(() => {
-    AsyncStorage.setItem('kotoba_target_language', JSON.stringify(targetLanguage))
-      .catch(err => console.error('Error saving target language:', err));
-  }, [targetLanguage]);
+    if (isInitialized) {
+      AsyncStorage.setItem('kotoba_source_language', JSON.stringify(sourceLanguage))
+        .catch(err => console.error('Error saving source language:', err));
+    }
+  }, [sourceLanguage, isInitialized]);
+  
+  useEffect(() => {
+    if (isInitialized) {
+      AsyncStorage.setItem('kotoba_target_language', JSON.stringify(targetLanguage))
+        .catch(err => console.error('Error saving target language:', err));
+    }
+  }, [targetLanguage, isInitialized]);
 
   // Time tracking logic
   useEffect(() => {

@@ -166,10 +166,18 @@ export default function TranslateScreen() {
     }
   }, [realtimeEnabled, realtime.isConnected]);
   useEffect(() => {
-    if (realtime.error) {
+    if (realtime.error && !realtime.error.includes('连接在 SDP 协商期间被中断')) {
       showToast(realtime.error, 'error');
     }
   }, [realtime.error]);
+  
+  // 错误处理 - 过滤掉正常的清理过程错误
+  const errorMessage = recordingError || translationError || realtime.error;
+  useEffect(() => {
+    if (errorMessage && !errorMessage.includes('连接在 SDP 协商期间被中断')) {
+      console.error('应用错误:', errorMessage);
+    }
+  }, [errorMessage]);
   const prevRealtimeEnabledRef = useRef(false);
   useEffect(() => {
     const prev = prevRealtimeEnabledRef.current;

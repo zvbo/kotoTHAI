@@ -8,7 +8,7 @@ export default function TermsOfServiceScreen() {
       <Text style={styles.lastUpdated}>最后更新：2024年12月</Text>
 
       <Text style={styles.content}>
-        欢迎使用 KotoBa。本服务条款是您（“用户”）与朱媛媛（“我们”或“开发者”）之间关于使用本应用的法律协议。请在使用前仔细阅读并同意以下条款。
+        欢迎使用 kotoTHAI。本服务条款是您（“用户”）与朱媛媛（“我们”或“开发者”）之间关于使用本应用的法律协议。请在使用前仔细阅读并同意以下条款。
       </Text>
 
       <View style={styles.section}>
@@ -83,7 +83,7 @@ export default function TermsOfServiceScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2024 朱媛媛 - KotoBa</Text>
+        <Text style={styles.footerText}>© 2024 朱媛媛 - kotoTHAI</Text>
       </View>
     </ScrollView>
   );

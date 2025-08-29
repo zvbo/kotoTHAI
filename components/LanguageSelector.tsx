@@ -32,7 +32,6 @@ export default function LanguageSelector({
   onSelectSource,
   onSelectTarget,
 }: LanguageSelectorProps) {
-  console.log('[LanguageSelector] Render. showSourcePicker:', showSourcePicker, 'showTargetPicker:', showTargetPicker);
   return (
     <View style={styles.container}>
       <View style={styles.buttonWrapper}>

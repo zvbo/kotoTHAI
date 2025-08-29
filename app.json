@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "KotoTHAI",
-    "slug": "koto-thai",
+    "slug": "kotoba",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
+    "scheme": "kotothai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {

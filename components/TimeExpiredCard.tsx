@@ -13,7 +13,7 @@ export default function TimeExpiredCard({ onPurchase }: TimeExpiredCardProps) {
       <Text style={styles.title}>翻译时间已用尽</Text>
       
       <Text style={styles.message}>
-        您已用尽所有免费翻译时间。购买更多时间以继续使用 KotoBa。
+        您已用尽所有免费翻译时间。购买更多时间以继续使用 kotoTHAI。
       </Text>
       
       <TouchableOpacity 
