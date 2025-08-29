@@ -406,10 +406,7 @@ export default function TranslateScreen() {
         targetLanguage={targetLanguage}
         onSourcePress={() => {
           console.log('[index.tsx] onSourcePress triggered.');
-          if (realtime.isConnected || realtime.isConnecting) {
-            setToast({ key: Date.now(), message: '请先关闭实时模式再切换语言', type: 'info' });
-            return;
-          }
+          // 允许在实时模式下展开下拉，无需拦截
           setShowSourcePicker((v) => {
             const next = !v;
             console.log(`[index.tsx] Toggling source picker. Current: ${v}, Next: ${next}`);
@@ -419,10 +416,7 @@ export default function TranslateScreen() {
         }}
         onTargetPress={() => {
           console.log('[index.tsx] onTargetPress triggered.');
-          if (realtime.isConnected || realtime.isConnecting) {
-            setToast({ key: Date.now(), message: '请先关闭实时模式再切换语言', type: 'info' });
-            return;
-          }
+          // 允许在实时模式下展开下拉，无需拦截
           setShowTargetPicker((v) => {
             const next = !v;
             console.log(`[index.tsx] Toggling target picker. Current: ${v}, Next: ${next}`);
@@ -436,21 +430,61 @@ export default function TranslateScreen() {
           swapLanguages();
           setShowSourcePicker(false);
           setShowTargetPicker(false);
+          // 若实时模式正在连接或已连接，应用新语言
+          if (realtime.isConnecting) {
+            // 取消当前连接并重新建立
+            try { realtime.disconnect(); } catch {}
+            setTimeout(() => { try { realtime.connect(); } catch {} }, 300);
+            setToast({ key: Date.now(), message: '正在应用新语言…', type: 'info' });
+          } else if (realtime.isConnected) {
+            realtime.reconnect();
+            setToast({ key: Date.now(), message: '语言已交换，正在应用…', type: 'info' });
+          }
         }}
         disabled={false}
         showSourcePicker={showSourcePicker}
         showTargetPicker={showTargetPicker}
         onSelectSource={(lang) => { 
           console.log(`[index.tsx] onSelectSource triggered with language: ${lang.name}`);
+          // 如果选择的“听”语言与当前“说”语言相同，阻止并提示
+          if (lang.code === targetLanguage.code) {
+            setShowSourcePicker(false);
+            setToast({ key: Date.now(), message: '现在听说是同一种语言，请切换语言', type: 'error' });
+            return;
+          }
           setSourceLanguage(lang); 
           setShowSourcePicker(false); 
           setShowTargetPicker(false); 
+          // 若实时模式正在连接或已连接，应用新语言
+          if (realtime.isConnecting) {
+            try { realtime.disconnect(); } catch {}
+            setTimeout(() => { try { realtime.connect(); } catch {} }, 300);
+            setToast({ key: Date.now(), message: `已切换为「${lang.name}（听）」：正在应用…`, type: 'info' });
+          } else if (realtime.isConnected) {
+            realtime.reconnect();
+            setToast({ key: Date.now(), message: `已切换为「${lang.name}（听）」：正在应用…`, type: 'info' });
+          }
         }}
         onSelectTarget={(lang) => { 
           console.log(`[index.tsx] onSelectTarget triggered with language: ${lang.name}`);
+          // 如果选择的“说”语言与当前“听”语言相同，阻止并提示
+          if (lang.code === sourceLanguage.code) {
+            setShowTargetPicker(false);
+            setToast({ key: Date.now(), message: '现在听说是同一种语言，请切换语言', type: 'error' });
+            return;
+          }
           setTargetLanguage(lang); 
           setShowTargetPicker(false); 
           setShowSourcePicker(false); 
+          // 若实时模式正在连接或已连接，应用新语言
+          if (realtime.isConnecting) {
+            try { realtime.disconnect(); } catch {}
+            setTimeout(() => { try { realtime.connect(); } catch {} }, 300);
+            setToast({ key: Date.now(), message: `将输出语言改为「${lang.name}」：正在应用…`, type: 'info' });
+          } else if (realtime.isConnected) {
+            realtime.reconnect();
+            setToast({ key: Date.now(), message: `将输出语言改为「${lang.name}」：正在应用…`, type: 'info' });
+          }
         }}
       />
 
@@ -500,6 +534,8 @@ export default function TranslateScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // 关键：允许上方 LanguageSelector 的下拉超出容器显示（RN Web 默认会裁切）
+    overflow: 'visible',
   },
   conversationContainer: {
     flex: 1,

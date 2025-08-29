@@ -12,6 +12,9 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
   const isUser = message.isUser;
   const hasOriginal = typeof message.text === 'string' && message.text.trim().length > 0;
   const hasTranslation = typeof message.translatedText === 'string' && message.translatedText.trim().length > 0;
+  // 针对泰语（th）在 iOS 上的显示问题：禁用 letterSpacing 与 italic
+  const isThaiOriginal = hasOriginal && message.sourceLanguage === 'th';
+  const isThaiTranslation = hasTranslation && message.targetLanguage === 'th';
   
   const getBubbleGradient = (): [string, string] => {
     return isUser 
@@ -37,7 +40,8 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
           {hasOriginal && (
             <Text style={[
               styles.originalText,
-              isUser ? styles.userText : styles.otherText
+              isUser ? styles.userText : styles.otherText,
+              isThaiOriginal && styles.thaiTextAdjust,
             ]}>
               {message.text}
             </Text>
@@ -53,7 +57,8 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
           {hasTranslation && (
             <Text style={[
               styles.translatedText,
-              isUser ? styles.userText : styles.otherText
+              isUser ? styles.userText : styles.otherText,
+              isThaiTranslation && styles.thaiTextAdjust,
             ]}>
               {message.translatedText}
             </Text>
@@ -103,6 +108,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontWeight: typography.fontWeight.normal,
     letterSpacing: 0.2,
+  },
+  // 针对泰语的样式兜底：禁用字距与斜体，避免组合附标分离导致的占位点
+  thaiTextAdjust: {
+    letterSpacing: 0,
+    fontStyle: 'normal',
   },
   userText: {
     color: colors.text.primary,

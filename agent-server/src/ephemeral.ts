@@ -92,11 +92,11 @@ router.post('/ephemeral', async (req, res) => {
         type: 'server_vad',
         threshold: 0.5,
         prefix_padding_ms: 300,
-        silence_duration_ms: 900,
+        silence_duration_ms: 1700,
         create_response: true,
       } as any,
       // 语音转写模型
-      input_audio_transcription: { model: 'whisper-1' },
+      input_audio_transcription: { model: 'gpt-4o-transcribe' },
       tools: [],
     } as any);
 

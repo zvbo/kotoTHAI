@@ -27,7 +27,11 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
   const isWeb = Platform.OS === 'web';
 
   // 服务器地址（默认本机 8788，可用 EXPO_PUBLIC_AGENT_SERVER_URL 覆盖）
-  const AGENT_SERVER_URL = (process.env.EXPO_PUBLIC_AGENT_SERVER_URL as string) || 'http://192.168.1.39:8788';
+  const AGENT_SERVER_URL =
+  (process.env.EXPO_PUBLIC_AGENT_SERVER_URL as string) ||
+  (typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:8788`
+  : 'http://localhost:8788');
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -114,7 +118,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
     }
     if (!session.voice) session.voice = 'alloy';
     if (!session.turn_detection) {
-      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 2000 };
+      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1700 };
     }
 
     let attempts = 0;

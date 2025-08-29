@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import Colors from '@/constants/colors';
 import { Language } from '@/types';
-import { shadows } from '@/styles/designSystem';
+import { shadows, spacing } from '@/styles/designSystem';
 import { ALL_LANGUAGES } from '@/constants/languages';
 
 type LanguageSelectorProps = {
@@ -187,23 +187,32 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+    // 允许子元素溢出展示
+    overflow: 'visible',
+    // 提高整体层级，避免被下方容器覆盖
+    zIndex: 50,
+    // Web 上确保 zIndex 生效
     position: 'relative',
   },
   buttonWrapper: {
+    flex: 1,
+    // 允许按钮的下拉在外部显示
+    overflow: 'visible',
+    zIndex: 60,
+    // 形成堆叠上下文
     position: 'relative',
-    zIndex: 1, // 确保各自容器形成堆叠上下文
   },
+  // 语言按钮样式
   languageButton: {
     backgroundColor: Colors.backgroundSecondary,
-    paddingVertical: 16,  // 增大点击区域
-    paddingHorizontal: 20, // 增大点击区域
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: 'center',
     minWidth: 120,
-    minHeight: 100,  // 设置最小高度
-    // 移除原生端专用的 shadow* 与 elevation，改用跨平台阴影
+    minHeight: 100,
     ...shadows.sm,
   },
   languageButtonPressed: {
@@ -229,17 +238,19 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 6,
   },
+  // 中间交换按钮
   swapButton: {
     backgroundColor: Colors.background,
-    padding: 16,  // 增大点击区域
+    padding: 16,
     borderRadius: 20,
     marginHorizontal: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    minWidth: 48,  // 设置最小宽高
+    minWidth: 48,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 70,
   },
   swapButtonPressed: {
     backgroundColor: Colors.border,
@@ -248,11 +259,11 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },
-  // 下拉菜单样式
+  // 下拉菜单样式（悬浮于文档流）
   dropdown: {
     position: 'absolute',
     top: '100%',
-    zIndex: 9999,
+    zIndex: 100,
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
@@ -262,7 +273,8 @@ const styles = StyleSheet.create({
     maxWidth: 240,
     paddingVertical: 6,
     ...shadows.lg,
-    elevation: 10,  // Android
+    elevation: 10,
+    overflow: 'visible',
   },
   dropdownLeft: {
     left: 0,
@@ -273,11 +285,11 @@ const styles = StyleSheet.create({
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,  // 增大点击区域
-    paddingHorizontal: 16, // 增大点击区域
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
-    minHeight: 50,  // 设置最小高度
+    minHeight: 50,
   },
   dropdownItemSelected: {
     backgroundColor: '#F2FBF5',

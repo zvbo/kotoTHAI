@@ -27,3 +27,17 @@ agent-server/dist/
 *.env
 agent-server/.env
 ios/.xcode.env.local
+# Strengthen env and secrets ignore
+.env.local
+.env.*
+agent-server/.env.local
+agent-server/.env.*
+android/app/google-services.json
+ios/**/GoogleService-Info.plist
+# Sensitive keys/certs
+*.keystore
+*.jks
+*.p8
+*.p12
+*.pem
+*.mobileprovision

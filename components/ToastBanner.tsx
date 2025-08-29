@@ -51,7 +51,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 20,
+    // 提升层级，覆盖 LanguageSelector 的下拉（zIndex 100）
+    zIndex: 1001,
   },
   toast: {
     paddingHorizontal: spacing.lg,
