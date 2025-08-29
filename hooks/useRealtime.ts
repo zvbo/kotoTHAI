@@ -27,7 +27,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
   const isWeb = Platform.OS === 'web';
 
   // 服务器地址（默认本机 8788，可用 EXPO_PUBLIC_AGENT_SERVER_URL 覆盖）
-  const AGENT_SERVER_URL = (process.env.EXPO_PUBLIC_AGENT_SERVER_URL as string) || 'http://localhost:8788';
+  const AGENT_SERVER_URL = (process.env.EXPO_PUBLIC_AGENT_SERVER_URL as string) || 'http://192.168.1.39:8788';
 
   useEffect(() => {
     if (Platform.OS === 'web') {
