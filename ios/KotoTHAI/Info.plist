@@ -88,5 +88,8 @@
     <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
+    <!-- Export compliance: App does not use non-exempt encryption beyond Apple-provided or standard algorithms -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
   </dict>
 </plist>
