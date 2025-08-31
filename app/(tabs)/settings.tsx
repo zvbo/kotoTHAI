@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useState, useEffect, useRef } from 'react';
+import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as StoreReview from 'expo-store-review';
 // 移除外部浏览器/深链，改用应用内路由
@@ -11,11 +11,103 @@ import Colors from '@/constants/colors';
 import { useAppContext } from '@/context/AppContext';
 import { formatTime } from '@/utils/time';
 import { shadows } from '@/styles/designSystem';
-import { PURCHASE_OPTIONS, type PurchaseOptionItem } from '../../constants/purchases';
+import { PURCHASE_OPTIONS, type PurchaseOptionItem, IAP_PRODUCT_ID_BY_OPTION, IAP_PRODUCT_IDS, OPTION_BY_IAP_PRODUCT_ID } from '../../constants/purchases';
+import * as RNIap from 'react-native-iap';
+import { verifyIAP } from '@/utils/api';
 
 export default function SettingsScreen() {
   const { userState, resetUserTime, addTime } = useAppContext();
   const [showPurchaseOptions, setShowPurchaseOptions] = useState(false);
+  // IAP 相关状态
+  const [iapReady, setIapReady] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  // optionId -> 显示的本地化价格
+  const [priceByOption, setPriceByOption] = useState<Record<PurchaseOptionItem['id'], string>>({} as any);
+  const purchaseUpdateSub = useRef<any>(null);
+  const purchaseErrorSub = useRef<any>(null);
+
+  // 初始化 IAP & 拉取商品
+  useEffect(() => {
+    // 仅在原生 iOS 环境下启用 IAP，避免在 Web/Safari 中触发 E_IAP_NOT_AVAILABLE
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    let mounted = true;
+    (async () => {
+      try {
+        const ok = await RNIap.initConnection();
+        if (!ok) return;
+        // iOS 无需 flushPending（Android 专有），若 SDK 提供 clearTransactionIOS 则安全清理一次
+        try { await (RNIap as any).clearTransactionIOS?.(); } catch {}
+        if (!mounted) return;
+        setIapReady(true);
+        setLoadingProducts(true);
+        // v13 兼容：某些环境下需要对象参数；加 any 规避类型差异
+        const prods = await (RNIap as any).getProducts?.({ skus: IAP_PRODUCT_IDS }) ?? await (RNIap as any).getProducts(IAP_PRODUCT_IDS);
+        const next: Partial<Record<PurchaseOptionItem['id'], string>> = {};
+        for (const p of prods || []) {
+          const optionId = OPTION_BY_IAP_PRODUCT_ID[p.productId];
+          if (optionId) {
+            // 优先 localizedPrice / priceString
+            next[optionId] = p.localizedPrice || p.priceString || p.price || '';
+          }
+        }
+        if (!mounted) return;
+        setPriceByOption(prev => ({ ...prev, ...(next as any) }));
+      } catch (e) {
+        console.warn('[IAP] init/getProducts failed:', e);
+      } finally {
+        setLoadingProducts(false);
+      }
+    })();
+
+    // 订阅购买事件（仅 iOS 原生）
+    purchaseUpdateSub.current = RNIap.purchaseUpdatedListener(async (purchase: any) => {
+      try {
+        if (!purchase) return;
+        const receipt: string | undefined = purchase.transactionReceipt || purchase.originalJson || purchase.receipt;
+        const productId: string | undefined = purchase.productId;
+        const transactionId: string | undefined = purchase.transactionId || purchase.transactionIdIOS || purchase.transactionIdentifier;
+        if (!receipt || !productId) return;
+
+        setProcessing(true);
+        const verify = await verifyIAP({ platform: 'ios', productId, receipt, transactionId });
+        if (verify?.ok && verify.grantSeconds) {
+          addTime(verify.grantSeconds);
+          try {
+            await (RNIap as any).finishTransaction?.({ purchase, isConsumable: true }) ?? (RNIap as any).finishTransaction(purchase, true);
+          } catch (finErr) {
+            console.warn('[IAP] finishTransaction failed:', finErr);
+          }
+          Alert.alert('购买成功', '已为您添加时长，感谢支持！');
+        } else {
+          Alert.alert('购买未完成', verify?.message || '校验失败，请稍后重试');
+        }
+      } catch (err) {
+        console.error('[IAP] purchaseUpdated handler error:', err);
+        Alert.alert('购买异常', '处理购买时出错，请稍后重试');
+      } finally {
+        setProcessing(false);
+      }
+    });
+
+    purchaseErrorSub.current = RNIap.purchaseErrorListener((err: any) => {
+      console.warn('[IAP] purchase error:', err);
+      if (err?.code !== 'E_USER_CANCELLED') {
+        Alert.alert('购买失败', err?.message || '请稍后重试');
+      }
+      setProcessing(false);
+    });
+
+    return () => {
+      mounted = false;
+      try { purchaseUpdateSub.current?.remove?.(); } catch {}
+      try { purchaseErrorSub.current?.remove?.(); } catch {}
+      try { RNIap.endConnection(); } catch {}
+    };
+  }, [addTime]);
 
   // 合规的评分请求：不承诺奖励，不修改用户状态
   const handleRequestReview = useCallback(async () => {
@@ -30,29 +122,28 @@ export default function SettingsScreen() {
     }
   }, []);
 
-  // 测试版购买：根据选项 id 增加相应分钟数，可叠加
-  const handlePurchase = useCallback((id: PurchaseOptionItem['id'], durationLabel: string, price: string) => {
-    let seconds = 0;
-    switch (id) {
-      case '10m':
-        seconds = 10 * 60; // 10 分钟
-        break;
-      case '30m':
-        seconds = 30 * 60; // 30 分钟
-        break;
-      case '2h':
-        seconds = 120 * 60; // 2 小时 = 120 分钟
-        break;
-      default:
-        seconds = 0;
+  // 真实购买流程
+  const handlePurchase = useCallback(async (id: PurchaseOptionItem['id'], title: string, price: string) => {
+    if (Platform.OS !== 'ios') {
+      Alert.alert('暂不支持', '当前版本仅支持 iOS 内购');
+      return;
     }
-
-    if (seconds > 0) {
-      addTime(seconds);
-      setShowPurchaseOptions(false);
-      Alert.alert('已添加时长（测试）', `已为您增加 ${durationLabel}（${price}）。您可以多次购买叠加使用。`, [{ text: '好的' }]);
+    const productId = IAP_PRODUCT_ID_BY_OPTION[id];
+    if (!productId) {
+      Alert.alert('商品不可用', '请稍后再试');
+      return;
     }
-  }, [addTime]);
+    try {
+      setProcessing(true);
+      // 不自动完成交易，等待服务端确认
+      await (RNIap as any).requestPurchase?.({ sku: productId, andDangerouslyFinishTransactionAutomatically: false })
+        ?? (RNIap as any).requestPurchase(productId, false);
+    } catch (e: any) {
+      console.warn('[IAP] requestPurchase failed:', e);
+      Alert.alert('购买失败', e?.message || '请稍后再试');
+      setProcessing(false);
+    }
+  }, []);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -64,11 +155,12 @@ export default function SettingsScreen() {
           <Text style={styles.timeLabel}>剩余</Text>
           
           <TouchableOpacity 
-            style={styles.addTimeButton}
+            style={[styles.addTimeButton, (!iapReady || processing) && { opacity: 0.7 }]}
             onPress={() => setShowPurchaseOptions(true)}
+            disabled={!iapReady || processing}
             testID="add-time-button"
           >
-            <Text style={styles.addTimeButtonText}>添加时长</Text>
+            <Text style={styles.addTimeButtonText}>{processing ? '处理中…' : '添加时长'}</Text>
           </TouchableOpacity>
 
           {__DEV__ && (
@@ -93,14 +185,19 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>购买选项</Text>
           
+          {loadingProducts && (
+            <View style={{ paddingVertical: 8 }}>
+              <ActivityIndicator color={Colors.primary} />
+            </View>
+          )}
+          
           <View style={styles.purchaseOptions}>
             {PURCHASE_OPTIONS.map((opt: PurchaseOptionItem) => (
               <PurchaseOption
                 key={opt.id}
                 title={opt.title}
-                durationLabel={opt.durationLabel}
-                price={opt.priceDisplay}
-                onPress={() => handlePurchase(opt.id, opt.durationLabel, opt.priceDisplay)}
+                price={priceByOption[opt.id] || opt.priceDisplay}
+                onPress={() => handlePurchase(opt.id, opt.title, priceByOption[opt.id] || opt.priceDisplay)}
                 featured={opt.featured}
               />
             ))}
@@ -164,13 +261,12 @@ export default function SettingsScreen() {
 
 type PurchaseOptionProps = {
   title: string;
-  durationLabel: string;
   price: string;
   onPress: () => void;
   featured?: boolean;
 };
 
-function PurchaseOption({ title, durationLabel, price, onPress, featured = false }: PurchaseOptionProps) {
+function PurchaseOption({ title, price, onPress, featured = false }: PurchaseOptionProps) {
   return (
     <TouchableOpacity 
       style={[
@@ -181,7 +277,7 @@ function PurchaseOption({ title, durationLabel, price, onPress, featured = false
     >
       {featured && <View style={styles.featuredBadge}><Text style={styles.featuredText}>最超值</Text></View>}
       <Text style={[styles.purchaseTitle, featured && styles.featuredTitle]}>{title}</Text>
-      <Text style={styles.purchaseHours}>{durationLabel}</Text>
+      <Text style={styles.purchaseHours}>{title}</Text>
       <Text style={[styles.purchasePrice, featured && styles.featuredPrice]}>{price}</Text>
     </TouchableOpacity>
   );

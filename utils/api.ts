@@ -78,3 +78,36 @@ export async function transcribeAudio(audioFile: { uri: string; name: string; ty
     throw error;
   }
 }
+
+// ================= IAP helpers =================
+
+export function getAgentServerURL(): string {
+  const envUrl = process.env.EXPO_PUBLIC_AGENT_SERVER_URL as string | undefined;
+  return envUrl && envUrl.length > 0 ? envUrl : 'http://localhost:8788';
+}
+
+export type VerifyIAPRequest = {
+  platform: 'ios' | 'android';
+  productId: string;
+  receipt: string;
+  transactionId?: string;
+};
+
+export type VerifyIAPResponse = {
+  ok: boolean;
+  grantSeconds?: number;
+  option?: string;
+  transactionId?: string;
+  message?: string;
+};
+
+export async function verifyIAP(body: VerifyIAPRequest): Promise<VerifyIAPResponse> {
+  const base = getAgentServerURL();
+  const resp = await fetch(`${base}/api/iap/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = (await resp.json()) as VerifyIAPResponse;
+  return data;
+}

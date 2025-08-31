@@ -5,29 +5,39 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_AGENT_SERVER_URL": "http://192.168.1.51:8788"
-      },
-      "ios": {
-        "resourceClass": "m-medium"
-      }
+      "distribution": "internal"
     },
-    "simulator": {
-      "ios": {
-        "simulator": true
-      }
+    "preview": {
+      "distribution": "internal"
     },
     "production": {
-      "env": {
-        "EXPO_PUBLIC_AGENT_SERVER_URL": "http://192.168.1.51:8788"
-      },
       "ios": {
-        "resourceClass": "m-medium"
+        "image": "latest",
+        "env": {
+          "NODE_OPTIONS": "--openssl-legacy-provider"
+        }
+      },
+      "android": {
+        "image": "latest"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "kellee.zhu@gmail.com",
+        "ascAppId": "6751739048",
+        "appleTeamId": "7Z8U2P9A49",
+        "ascApiKeyPath": "./.keys/AuthKey_D6B2UNSA9Q.p8",
+        "ascApiKeyIssuerId": "24b26b1a-355b-45de-909e-2453e3779b44",
+        "ascApiKeyId": "D6B2UNSA9Q",
+        "companyName": "KotoBaAI",
+        "sku": "com.kotoba.kotothai.ios",
+        "language": "en-US"
+      },
+      "android": {
+        "track": "internal"
+      }
+    }
   }
 }

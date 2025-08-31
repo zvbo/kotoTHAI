@@ -6,6 +6,7 @@ import { ephemeralApp } from './ephemeral';
 import { toolApp } from './tool-executor';
 import { WebRTCManager } from './realtime/webrtc';
 import { AgentBridge } from './realtime/agentBridge';
+import { iapApp } from './iap';
 
 const app = express();
 const httpServer = createServer(app);
@@ -23,6 +24,7 @@ const agentBridge = new AgentBridge(webrtcManager);
 // 路由
 app.use('/api', ephemeralApp);
 app.use('/api/tools', toolApp);
+app.use('/api/iap', iapApp);
 
 // 健康检查
 app.get('/health', (req, res) => {
