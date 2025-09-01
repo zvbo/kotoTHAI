@@ -13,6 +13,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": "20.15.1"
+  },
   "dependencies": {
     "@openai/agents": "^0.0.17",
     "@openai/agents-realtime": "^0.0.17",
