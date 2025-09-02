@@ -109,6 +109,15 @@ async function verifyAppleReceipt(productId: string, clientTxId: string | undefi
  */
 iapApp.post('/verify', async (req, res) => {
   try {
+    // 【DEBUG】记录请求头与 body
+    console.log('=== /iap/verify 请求详情 ===');
+    console.log('Content-Type:', req.get('Content-Type'));
+    console.log('User-Agent:', req.get('User-Agent'));
+    console.log('req.body type:', typeof req.body);
+    console.log('req.body content:', JSON.stringify(req.body, null, 2));
+    console.log('req.rawBody (if available):', (req as any).rawBody);
+    console.log('=== End Request Details ===');
+
     const { platform, productId, transactionId, receipt } = (req.body || {}) as {
       platform?: 'ios' | 'android';
       productId?: string;

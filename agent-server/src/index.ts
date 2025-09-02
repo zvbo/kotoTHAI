@@ -15,6 +15,16 @@ const HOST = '0.0.0.0';
 
 // 中间件
 app.use(cors());
+
+// 【DEBUG】添加原始请求体记录中间件
+app.use('/api', (req, res, next) => {
+  console.log(`[MIDDLEWARE] ${req.method} ${req.path}`);
+  console.log('[MIDDLEWARE] Content-Type:', req.get('Content-Type'));
+  console.log('[MIDDLEWARE] Content-Length:', req.get('Content-Length'));
+  // 注意：此处不读取 req 的数据流，避免影响 express.json()
+  next();
+});
+
 app.use(express.json());
 
 // 初始化Realtime模块
@@ -46,6 +56,23 @@ app.get('/api/realtime/status', (req, res) => {
     realtimeConnections: agentBridge.getActiveRealtimeConnections(),
     timestamp: new Date().toISOString()
   });
+});
+
+// JSON 解析错误处理中间件（捕获 express.json 的解析异常）
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    const contentType = req.get('Content-Type');
+    const raw = (req as any).rawBodyString || 'N/A';
+    console.error('[JSON Parse Error]', {
+      message: err.message,
+      contentType,
+      raw,
+      path: req.path,
+      method: req.method,
+    });
+    return res.status(400).json({ ok: false, message: 'Invalid JSON', detail: err.message });
+  }
+  return next(err);
 });
 
 httpServer.listen(Number(PORT), HOST, () => {

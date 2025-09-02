@@ -92,33 +92,51 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
 
   // 构建兜底的实时口译指令（仅在后端未提供 instructions 时使用）
   const buildFallbackInstructions = useCallback((src?: string, tgt?: string) => {
-    const source = src || 'auto';
+    const source = src || 'zh';
     const target = tgt || 'th';
     return (
-      `You are a simultaneous interpreter. Your ONLY job is to translate the speaker's speech from ${source} to ${target} in real time. ` +
+      `You are a professional simultaneous interpreter between ${source} and ${target}. ` +
+      `Detect the language of each utterance. If the user speaks ${source}, immediately interpret into ${target}. ` +
+      `If the user speaks ${target}, immediately interpret into ${source}. ` +
       `Do not chat, do not add explanations, do not ask questions. Keep sentences natural, concise, and conversational. ` +
-      `If input is already in ${target}, repeat it briefly with improved clarity in ${target}.`
+      `If the input is already clear in the target language, repeat briefly for clarity in that language.`
     );
   }, []);
 
   // 在数据通道上发送包含 instructions/voice/turn_detection 的 session.update（等待通道就绪，最多重试）
   const sendSessionUpdate = useCallback((sessionFromServer?: any) => {
-    const session: any = {
-      input_audio_transcription: { model: 'gpt-4o-transcribe' },
-      temperature: 0.2,
-      top_p: 0.3,
-      presence_penalty: 0,
-      frequency_penalty: 0,
-    };
-    if (sessionFromServer && typeof sessionFromServer === 'object') {
-      Object.assign(session, sessionFromServer);
+    // 以“服务器为主 + 必要兜底”的方式合成配置，避免覆盖后端设置
+    const session: any = (sessionFromServer && typeof sessionFromServer === 'object') ? { ...sessionFromServer } : {};
+
+    // 确保存在转写模型（若服务端未提供）
+    if (!session.input_audio_transcription) {
+      session.input_audio_transcription = { model: 'gpt-4o-transcribe' };
     }
+
+    // 仅在服务器未提供 instructions 时，使用兜底规则（双向同传）
     if (!session.instructions) {
       session.instructions = buildFallbackInstructions(params?.sourceLangCode, params?.targetLangCode);
     }
-    if (!session.voice) session.voice = 'alloy';
+
+    // 语音配置：优先使用后端的嵌套字段 audio.output.voice；若两处都没有，再提供兜底
+    const nestedVoice = session?.audio?.output?.voice;
+    const topVoice = (session as any)?.voice;
+    if (!nestedVoice && !topVoice) {
+      session.audio = session.audio || {};
+      session.audio.output = session.audio.output || {};
+      session.audio.output.voice = 'marin';
+    } else if (topVoice && !nestedVoice) {
+      session.audio = session.audio || {};
+      session.audio.output = session.audio.output || {};
+      session.audio.output.voice = topVoice;
+      delete (session as any).voice;
+    } else if (nestedVoice && topVoice) {
+      delete (session as any).voice;
+    }
+
+    // 端点检测：仅在后端未提供时再给兜底，且采用与服务端一致的静音门限
     if (!session.turn_detection) {
-      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1700 };
+      session.turn_detection = { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 2200 };
     }
 
     let attempts = 0;
@@ -204,15 +222,12 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       dataChannelRef.current = localChannel;
       localChannel.onopen = () => {
         try {
-          // 连接建立时先下发基础配置；详细 instructions 稍后以服务器返回为准再覆盖
+          // 连接建立时下发最小化配置；详细 instructions 以服务器返回为准再覆盖
           localChannel.send(
             JSON.stringify({
               type: 'session.update',
               session: {
                 input_audio_transcription: { model: 'gpt-4o-transcribe' },
-                temperature: 0.2,
-                presence_penalty: 0,
-                frequency_penalty: 0,
               },
             })
           );
@@ -372,15 +387,12 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       dataChannelRef.current = localChannel;
       localChannel.onopen = () => {
         try {
-          // 仅更新会话配置；不主动触发 response.create
+          // 仅更新会话最小配置；不主动覆盖温度/语音等
           localChannel.send(
             JSON.stringify({
               type: 'session.update',
               session: {
                 input_audio_transcription: { model: 'gpt-4o-transcribe' },
-                temperature: 0.2,
-                presence_penalty: 0,
-                frequency_penalty: 0,
               },
             })
           );

@@ -8,17 +8,27 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AGENT_SERVER_URL": "https://kotothai.onrender.com"
+      }
     },
     "production": {
       "ios": {
+        "developmentClient": true,
         "image": "latest",
         "env": {
-          "NODE_OPTIONS": "--openssl-legacy-provider"
+          "NODE_OPTIONS": "--openssl-legacy-provider",
+          "EXPO_PUBLIC_AGENT_SERVER_URL": "https://kotothai.onrender.com"
         }
       },
       "android": {
-        "image": "latest"
+        "developmentClient": true,
+        "image": "latest",
+        "env": {
+          "EXPO_PUBLIC_AGENT_SERVER_URL": "https://kotothai.onrender.com"
+        }
       }
     }
   },
