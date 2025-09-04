@@ -18,11 +18,13 @@
       "bundleIdentifier": "com.kelly.kotothai.dev",
       "infoPlist": {
         "UIBackgroundModes": [
+          "audio",
           "audio"
         ],
         "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
       },
-      "bitcode": false
+      "bitcode": false,
+      "runtimeVersion": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
@@ -39,8 +41,20 @@
         "android.permission.CAMERA",
         "android.permission.INTERNET",
         "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.BLUETOOTH",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK"
-      ]
+      ],
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -80,6 +94,9 @@
         "projectId": "12134342-1188-4f9f-b19c-25e3d71369c6"
       }
     },
-    "owner": "zvbo2"
+    "owner": "zvbo2",
+    "updates": {
+      "url": "https://u.expo.dev/12134342-1188-4f9f-b19c-25e3d71369c6"
+    }
   }
 }

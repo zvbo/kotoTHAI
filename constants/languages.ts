@@ -3,6 +3,7 @@ export const ALL_LANGUAGES = [
   { code: 'zh', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' },
   { code: 'th', name: 'Thai', flag: '🇹🇭', nativeName: 'ไทย' },
   { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
+  { code: 'ja', name: '日语', flag: '🇯🇵' },
 ];
 
 // 对外可选的目标语言（开放中/英/泰三种）
@@ -10,6 +11,7 @@ export const LANGUAGES = [
   { code: 'zh', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' },
   { code: 'th', name: 'Thai', flag: '🇹🇭', nativeName: 'ไทย' },
   { code: 'en', name: 'English', flag: '🇺🇸', nativeName: 'English' },
+  { code: 'ja', name: '日语', flag: '🇯🇵' },
 ];
 
 export const DEFAULT_SOURCE_LANGUAGE = { code: 'zh', name: 'Chinese', flag: '🇨🇳', nativeName: '中文' };

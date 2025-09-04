@@ -23,7 +23,6 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
   const incallRef = useRef<any>(null);
   // 新增：连接互斥，避免同一时刻多次 connect/reconnect 并发触发
   const connectingRef = useRef(false);
-
   const isWeb = Platform.OS === 'web';
 
   // 服务器地址（默认本机 8788，可用 EXPO_PUBLIC_AGENT_SERVER_URL 覆盖）
@@ -158,115 +157,164 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
     trySend();
   }, [buildFallbackInstructions, params?.sourceLangCode, params?.targetLangCode]);
 
-  const connectWeb = useCallback(async () => {
-    setError(null);
-    if (!isSupported) {
-      setError('当前平台暂不支持 WebRTC（请在浏览器中使用，或稍后在原生端接入 react-native-webrtc）');
-      return;
-    }
-    // 互斥保护
-    if (connectingRef.current) return;
+  // connectWeb 函数已删除，逻辑合并到统一的 connect 函数中
+
+  // connectNative 函数已删除，逻辑合并到统一的 connect 函数中
+
+  const connect = useCallback(async () => {
+    if (isConnecting || connectingRef.current) return;
     connectingRef.current = true;
     setIsConnecting(true);
+    setError(null);
 
     try {
-      // 1) 获取本地麦克风
-      let mic: MediaStream;
-      try {
-        mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (e: any) {
-        const name = e?.name || e?.code || '';
-        let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          msg = '麦克风权限被拒绝，请在系统设置中为 kotoTHAI 开启麦克风权限后重试';
-        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-          msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
-        }
-        setError(msg);
-        try {
-          Alert.alert('麦克风不可用', msg, [
-            { text: '稍后' },
-            Linking.openSettings ? { text: '前往设置', onPress: () => Linking.openSettings?.() } as any : undefined,
-          ].filter(Boolean) as any);
-        } catch {}
-        setIsConnecting(false);
-        connectingRef.current = false;
-        return;
-      }
-      micStreamRef.current = mic;
+      // 1. 初始化 PC 和平台模块
+      let pc: RTCPeerConnection;
+      const isWeb = Platform.OS === 'web';
 
-      // 2) 创建 RTCPeerConnection
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      });
+      // ICE 服务器配置：默认仅使用公共 STUN；如需 TURN，请通过 EXPO_PUBLIC_TURN_* 环境变量提供
+      const turnUrl = process.env.EXPO_PUBLIC_TURN_URL;
+      const turnUsername = process.env.EXPO_PUBLIC_TURN_USERNAME;
+      const turnPassword = process.env.EXPO_PUBLIC_TURN_PASSWORD;
+      const iceServers: any[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+      if (turnUrl && /^turns?:/i.test(turnUrl)) {
+        iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnPassword });
+      }
+
+      if (isWeb) {
+        pc = new RTCPeerConnection({
+          iceServers,
+        });
+      } else {
+        const webrtc = await import('react-native-webrtc');
+        const RNRTCPeerConnection = (webrtc as any).RTCPeerConnection;
+        pc = new RNRTCPeerConnection({
+          iceServers,
+        });
+      }
       pcRef.current = pc;
 
-      // 3) 远端音频播放（仅 Web）
-      if (typeof Audio !== 'undefined') {
-        const audioEl = new Audio();
-        audioEl.autoplay = true;
-        remoteAudioRef.current = audioEl as HTMLAudioElement;
+      // 2. 设置事件监听器 (ontrack, ondatachannel, etc.)
+      if (isWeb) {
+        // Web 端远端音频播放
+        if (typeof Audio !== 'undefined') {
+          const audioEl = new Audio();
+          audioEl.autoplay = true;
+          remoteAudioRef.current = audioEl as HTMLAudioElement;
+        }
+        pc.ontrack = (ev) => {
+          if (remoteAudioRef.current) {
+            try {
+              (remoteAudioRef.current as any).srcObject = ev.streams[0];
+              (remoteAudioRef.current as any).play?.();
+            } catch {}
+          }
+        };
+      } else {
+        // 原生端启用外放
+        try {
+          const { default: InCallManager } = await import('react-native-incall-manager');
+          incallRef.current = InCallManager;
+          InCallManager.start({ media: 'audio' });
+          InCallManager.setForceSpeakerphoneOn(true);
+        } catch (e) {
+          console.warn('InCallManager 初始化失败（可忽略，仅影响外放）', e);
+        }
       }
 
-      pc.ontrack = (ev) => {
-        if (remoteAudioRef.current) {
-          try {
-            (remoteAudioRef.current as any).srcObject = ev.streams[0];
-            remoteAudioRef.current.play().catch(() => {});
-          } catch {}
-        }
-      };
-
-      // 4) 创建本地数据通道
+      // 创建本地数据通道
       const localChannel = pc.createDataChannel('oai-events');
       dataChannelRef.current = localChannel;
-      localChannel.onopen = () => {
+      
+      localChannel.onopen = (event) => {
+        console.log('--- [Data Channel] --- State: open', event);
         try {
-          // 连接建立时下发最小化配置；详细 instructions 以服务器返回为准再覆盖
           localChannel.send(
             JSON.stringify({
               type: 'session.update',
-              session: {
-                input_audio_transcription: { model: 'gpt-4o-transcribe' },
-              },
+              session: { input_audio_transcription: { model: 'gpt-4o-transcribe' } },
             })
           );
+          console.log('--- [Data Channel] --- Initial session.update sent.');
         } catch (e) {
-          console.warn('发送初始化事件失败', e);
+          console.error('--- [Data Channel] --- FAILED to send initial message:', e);
         }
       };
-      localChannel.onmessage = (msg) => {
+
+      localChannel.onclose = (event) => {
+        console.log('--- [Data Channel] --- State: close', event);
+      };
+
+      localChannel.onerror = (event) => {
+        console.error('--- [Data Channel] --- Error:', event);
+      };
+
+      localChannel.onmessage = (event) => {
+        // 这是我们最重要的日志点
+        console.log('--- [Data Channel] --- Message received:', event.data);
         try {
-          const data = JSON.parse(msg.data);
+          const data = JSON.parse(event.data);
           setLastEvent(data);
         } catch {
-          setLastEvent(msg.data);
+          setLastEvent(event.data);
         }
       };
-
-      // 5) 接收来自 OpenAI 的远端数据通道
-      pc.ondatachannel = (ev) => {
-        const channel = ev.channel;
-        if (!dataChannelRef.current) dataChannelRef.current = channel;
-        channel.onmessage = (msg) => {
-          try {
-            const data = JSON.parse(msg.data);
-            setLastEvent(data);
-          } catch {
-            setLastEvent(msg.data);
+      
+      // 3. 采集麦克风（Web / 原生）
+      let mic: MediaStream;
+      if (isWeb) {
+        try {
+          mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e: any) {
+          const name = e?.name || e?.code || '';
+          let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+            msg = '麦克风权限被拒绝，请在浏览器地址栏右侧开启麦克风权限后重试';
+          } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
           }
-        };
-      };
+          setError(msg);
+          try {
+            Alert.alert('麦克风不可用', msg, [
+              { text: '稍后' },
+              Linking.openSettings ? { text: '前往设置', onPress: () => Linking.openSettings?.() } as any : undefined,
+            ].filter(Boolean) as any);
+          } catch {}
+          return;
+        }
+      } else {
+        const webrtc = await import('react-native-webrtc');
+        const mediaDevices = (webrtc as any).mediaDevices;
+        try {
+          mic = await mediaDevices.getUserMedia({ audio: true });
+        } catch (e: any) {
+          const name = e?.name || e?.code || '';
+          let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
+          if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+            msg = '麦克风权限被拒绝，请在系统设置中为 kotoTHAI 开启麦克风权限后重试';
+          } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+            msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
+          }
+          setError(msg);
+          try {
+            Alert.alert('麦克风不可用', msg, [
+              { text: '稍后' },
+              Linking.openSettings ? { text: '前往设置', onPress: () => Linking.openSettings?.() } as any : undefined,
+            ].filter(Boolean) as any);
+          } catch {}
+          return;
+        }
+      }
+      micStreamRef.current = mic;
 
-      // 6) 添加本地音频（仅使用 addTrack，避免与 addTransceiver 重复导致双路音频）
-      mic.getTracks().forEach((t) => pc.addTrack(t, mic));
-      // 移除：pc.addTransceiver('audio', { direction: 'sendrecv' });
+      // 4. 添加轨道
+      mic.getTracks().forEach(track => pc.addTrack(track, mic));
 
-      // 7) 创建本地 SDP
+      // 5. 创建 Offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      // 8) 获取临时密钥
+      // 6. 获取临时密钥（直接使用当前 params）
       const ephResp = await fetch(`${AGENT_SERVER_URL}/api/ephemeral`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -277,32 +325,32 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       });
       if (!ephResp.ok) throw new Error('获取临时密钥失败');
       const ephData = await ephResp.json();
-      const apiKey: string = ephData.apiKey;
-      const model: string = (ephData.session && ephData.session.model) || 'gpt-4o-mini-realtime-preview-2024-12-17';
+      const { apiKey, session } = ephData;
 
-      // 9) SDP 交换
-      const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`, {
+      // 7. 交换 SDP
+      const sdpResp = await fetch(`${AGENT_SERVER_URL}/api/realtime/sdp`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/sdp',
-          'OpenAI-Beta': 'realtime=v1',
-        },
-        body: offer.sdp || '',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          offer: offer.sdp,
+          token: apiKey,
+          model: (session && session.model) || 'gpt-4o-mini-realtime-preview-2024-12-17',
+        }),
       });
-      if (!sdpResp.ok) throw new Error('建立实时连接失败（SDP 交换失败）');
+      if (!sdpResp.ok) throw new Error('SDP 交换失败');
       const answerSdp = await sdpResp.text();
-      // 防御：如果在等待服务端应答期间被外部 cleanup() 关闭，则不再调用 setRemoteDescription
-      if (!pcRef.current || (pcRef.current as any).signalingState === 'closed') {
-        console.warn('连接在 SDP 协商期间被中断，跳过 setRemoteDescription');
-        return; // 静默返回，不抛出错误
+
+      // 8. 设置远程描述
+      if (!pcRef.current || pcRef.current.signalingState === 'closed') {
+        return; // 连接已在过程中被关闭
       }
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
-      // 10) 会话建立后，基于后端返回或本地兜底下发语言指令
-      sendSessionUpdate(ephData.session);
+      // 9. 更新会话
+      sendSessionUpdate(session);
 
       setIsConnected(true);
+
     } catch (err: any) {
       console.error('Realtime 连接失败', err);
       let msg = err?.message || 'Realtime 连接失败';
@@ -318,187 +366,7 @@ export default function useRealtime(params?: { sourceLangCode?: string; targetLa
       setIsConnecting(false);
       connectingRef.current = false;
     }
-  }, [AGENT_SERVER_URL, cleanup, isSupported, params?.sourceLangCode, params?.targetLangCode, sendSessionUpdate]);
-
-  const connectNative = useCallback(async () => {
-    setError(null);
-    // 互斥保护
-    if (connectingRef.current) return;
-    connectingRef.current = true;
-    setIsConnecting(true);
-    try {
-      // 动态引入以避免 Web 侧打包报错
-      const webrtc = await import('react-native-webrtc');
-      // @ts-ignore - 运行时存在
-      const RNRTCPeerConnection = (webrtc as any).RTCPeerConnection as any;
-      // @ts-ignore - 运行时存在
-      const mediaDevices = (webrtc as any).mediaDevices as any;
-
-      // 关键校验：如果原生模块未正确安装/未包含在 Dev Client，将无法创建 PeerConnection
-      if (!RNRTCPeerConnection || !mediaDevices || typeof mediaDevices.getUserMedia !== 'function') {
-        throw new Error('未找到原生 WebRTC 能力：请使用自定义 Dev Client 运行，或重新构建包含 react-native-webrtc 的客户端');
-      }
-
-      console.log('✅ WebRTC 原生模块检测成功');
-
-      // 启用外放：使用 InCallManager 强制扬声器输出，让系统音量可控
-      try {
-        const { default: InCallManager } = await import('react-native-incall-manager');
-        incallRef.current = InCallManager;
-        InCallManager.start({ media: 'audio' });
-        InCallManager.setForceSpeakerphoneOn(true);
-      } catch (e) {
-        console.warn('InCallManager 初始化失败（可忽略，仅影响外放）', e);
-      }
-
-      // 1) 获取本地麦克风
-      let mic: any;
-      try {
-        mic = await mediaDevices.getUserMedia({ audio: true });
-      } catch (e: any) {
-        const name = e?.name || e?.code || '';
-        let msg = '无法访问麦克风，请检查权限设置或设备是否可用';
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          msg = '麦克风权限被拒绝，请在系统设置中为 kotoTHAI 开启麦克风权限后重试';
-        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-          msg = '未检测到可用的音频输入设备，请连接麦克风后重试';
-        }
-        setError(msg);
-        try {
-          Alert.alert('麦克风不可用', msg, [
-            { text: '稍后' },
-            Linking.openSettings ? { text: '前往设置', onPress: () => Linking.openSettings?.() } as any : undefined,
-          ].filter(Boolean) as any);
-        } catch {}
-        setIsConnecting(false);
-        connectingRef.current = false;
-        return;
-      }
-      micStreamRef.current = mic;
-
-      // 2) 创建 RTCPeerConnection（原生）
-      const pc = new RNRTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-      });
-      pcRef.current = pc as unknown as RTCPeerConnection;
-
-      // 3) 数据通道
-      const localChannel = pc.createDataChannel('oai-events');
-      dataChannelRef.current = localChannel;
-      localChannel.onopen = () => {
-        try {
-          // 仅更新会话最小配置；不主动覆盖温度/语音等
-          localChannel.send(
-            JSON.stringify({
-              type: 'session.update',
-              session: {
-                input_audio_transcription: { model: 'gpt-4o-transcribe' },
-              },
-            })
-          );
-        } catch (e) {
-          console.warn('发送初始化事件失败', e);
-        }
-      };
-      localChannel.onmessage = (msg: any) => {
-        try {
-          const data = JSON.parse(msg.data);
-          setLastEvent(data);
-        } catch {
-          setLastEvent(msg.data);
-        }
-      };
-
-      // 4) 远端数据通道（回退）
-      pc.ondatachannel = (ev: any) => {
-        const channel = ev.channel;
-        if (!dataChannelRef.current) dataChannelRef.current = channel;
-        channel.onmessage = (msg: any) => {
-          try {
-            const data = JSON.parse(msg.data);
-            setLastEvent(data);
-          } catch {
-            setLastEvent(msg.data);
-          }
-        };
-      };
-
-      // 5) 附加本地音频（仅使用 addTrack，避免与 addTransceiver 重复）
-      mic.getTracks().forEach((t: any) => pc.addTrack(t, mic));
-      // 移除：pc.addTransceiver && pc.addTransceiver('audio', { direction: 'sendrecv' });
-
-      // 6) 创建本地 SDP
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      // 7) 获取临时密钥（与 Web 相同）
-      const ephResp = await fetch(`${AGENT_SERVER_URL}/api/ephemeral`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceLanguage: params?.sourceLangCode,
-          targetLanguage: params?.targetLangCode,
-        }),
-      });
-      if (!ephResp.ok) throw new Error('获取临时密钥失败');
-      const ephData = await ephResp.json();
-      const apiKey: string = ephData.apiKey;
-      const model: string = (ephData.session && ephData.session.model) || 'gpt-4o-mini-realtime-preview-2024-12-17';
-
-      // 8) SDP 交换（与 Web 相同）
-      const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/sdp',
-          'OpenAI-Beta': 'realtime=v1',
-        },
-        body: offer.sdp || '',
-      });
-      if (!sdpResp.ok) throw new Error('建立实时连接失败（SDP 交换失败）');
-      const answerSdp = await sdpResp.text();
-      
-      // 防御：如果在等待服务端应答期间被外部 cleanup() 关闭，则不再调用 setRemoteDescription
-      if (!pcRef.current || (pcRef.current as any).signalingState === 'closed') {
-        console.warn('连接在 SDP 协商期间被中断（Native），跳过 setRemoteDescription');
-        return; // 静默返回，不抛出错误
-      }
-      await (pc as any).setRemoteDescription({ type: 'answer', sdp: answerSdp });
-
-      // 9) 下发语言与语音配置（优先后端 session，兜底本地构建）
-      sendSessionUpdate(ephData.session);
-
-      setIsConnected(true);
-    } catch (err: any) {
-      console.error('Realtime 连接失败（Native）', err);
-      let msg = err?.message || 'Realtime 连接失败（Native）';
-      if (/临时密钥|ephemeral/i.test(msg)) {
-        msg = '服务暂时不可用或密钥颁发失败，请稍后重试';
-      } else if (/SDP|realtime|fetch|network/i.test(msg)) {
-        msg = '网络异常或服务不可用，请检查网络后重试';
-      }
-      setError(msg);
-      try { Alert.alert('连接失败', msg); } catch {}
-      cleanup();
-    } finally {
-      setIsConnecting(false);
-      connectingRef.current = false;
-    }
-  }, [AGENT_SERVER_URL, cleanup, params?.sourceLangCode, params?.targetLangCode, sendSessionUpdate]);
-
-  const connect = useCallback(async () => {
-    // 并发保护：若正在连接中，直接忽略新的连接请求
-    if (isConnecting || connectingRef.current) return;
-    // 若存在残余连接/通道，先做一次安全清理，避免并发导致的“双声”
-    if (pcRef.current || dataChannelRef.current) {
-      cleanup();
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    if (isWeb) {
-      return connectWeb();
-    }
-    return connectNative();
-  }, [isWeb, connectWeb, connectNative, cleanup, isConnecting]);
+  }, [AGENT_SERVER_URL, cleanup, sendSessionUpdate, params?.sourceLangCode, params?.targetLangCode]);
 
   const disconnect = useCallback(() => {
     cleanup();

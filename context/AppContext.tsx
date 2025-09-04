@@ -146,7 +146,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   const addMessage = useCallback((message: Omit<ConversationMessage, 'id' | 'timestamp'>) => {
     const newMessage: ConversationMessage = {
       ...message,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       timestamp: Date.now()
     };
     

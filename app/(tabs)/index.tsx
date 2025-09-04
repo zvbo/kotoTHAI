@@ -65,17 +65,13 @@ export default function TranslateScreen() {
   }, [startSession, stopSession]);
 
   // 本地缓冲区：将 Realtime 的增量文本缓冲，空闲一段时间后落为一条消息
-  const [rtBuffer, setRtBuffer] = useState('');
   const rtTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 使用 refs 镜像缓冲，避免将缓冲状态加入依赖导致循环
-  const rtBufferRef = useRef('');
   const rtSrcBufferRef = useRef('');
   const rtTgtBufferRef = useRef('');
   
-  // 新增：原文与译文双缓冲，支持“完整对话模式”
+  // 原文与译文双缓冲，支持“完整对话模式”
   const { conversationMode } = useAppContext();
-  const [rtSrcBuffer, setRtSrcBuffer] = useState('');
-  const [rtTgtBuffer, setRtTgtBuffer] = useState('');
 
   // Toast 状态（非模态小条提示）
   const [toast, setToast] = useState<null | { message: string; type: 'info' | 'success' | 'error'; key: number }>(null);
@@ -145,10 +141,7 @@ export default function TranslateScreen() {
       // 关闭开关时断开（仅网络/音频资源清理，不再在此处更新全局会话状态）
       realtime.disconnect();
       if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
-      setRtBuffer('');
-      setRtSrcBuffer('');
-      setRtTgtBuffer('');
-      rtBufferRef.current = '';
+      // 仅清空 ref，避免触发重渲染
       rtSrcBufferRef.current = '';
       rtTgtBufferRef.current = '';
     };
@@ -191,13 +184,9 @@ export default function TranslateScreen() {
     setRealtimeEnabled((prev) => {
       const next = !prev;
       if (!next) {
-        // 关闭实时：断开并清理缓冲（会话计时在下方 useEffect 中停止）
+        // 关闭实时：断开并清理缓冲
         realtime.disconnect();
         if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
-        setRtBuffer('');
-        setRtSrcBuffer('');
-        setRtTgtBuffer('');
-        rtBufferRef.current = '';
         rtSrcBufferRef.current = '';
         rtTgtBufferRef.current = '';
       }
@@ -286,96 +275,68 @@ export default function TranslateScreen() {
     return null;
   }, []);
 
-  // 将 Realtime 文本增量缓冲，并在短暂空闲后落入全局消息
+  // 将 Realtime 文本增量缓冲，并在短暂空闲后落入全局消息（仅使用 ref，不触发重渲染）
   useEffect(() => {
-    if (!realtimeEnabled) return;
-    // 调试：打印事件类型与关键字段，便于识别“原文/译文”事件
-    try {
-      if (realtime.lastEvent) {
-        const ev: any = realtime.lastEvent;
-        const t = typeof ev === 'object' ? ev.type : typeof ev;
-        console.debug('[Realtime] event:', t, '\nkeys=', typeof ev === 'object' ? Object.keys(ev) : 'primitive');
-      }
-    } catch {}
+    if (!realtimeEnabled || !realtime.lastEvent) return;
+
+    // 1. 打印原始事件
+    console.log('--- [Realtime Event Received] ---', JSON.stringify(realtime.lastEvent, null, 2));
 
     const tgtChunk = extractRealtimeText(realtime.lastEvent);
     const srcChunk = extractOriginalText(realtime.lastEvent);
-    if (!tgtChunk && !srcChunk) return;
+
+    // 2. 打印提取的文本块
+    console.log(`--- [Chunks Extracted] --- Src: "${srcChunk}", Tgt: "${tgtChunk}"`);
 
     if (tgtChunk) {
-      setRtTgtBuffer((prev) => {
-        const next = prev + tgtChunk;
-        rtTgtBufferRef.current = next;
-        return next;
-      });
+      rtTgtBufferRef.current += tgtChunk;
     }
     if (srcChunk) {
-      setRtSrcBuffer((prev) => {
-        const next = prev + srcChunk;
-        rtSrcBufferRef.current = next;
-        return next;
-      });
+      rtSrcBufferRef.current += srcChunk;
     }
 
-    // 兼容旧逻辑：维护单缓冲以不破坏 UI（用于仅译文模式实时显示）
-    if (tgtChunk) {
-      setRtBuffer((prev) => {
-        const next = prev + tgtChunk;
-        rtBufferRef.current = next;
-        return next;
-      });
-    }
+    if (!tgtChunk && !srcChunk) return;
 
     if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
+
     rtTimerRef.current = setTimeout(() => {
-      // 读取当前缓冲并落库
       const toSendSrc = rtSrcBufferRef.current.trim();
       const toSendTgt = rtTgtBufferRef.current.trim();
-      const toSendSingle = rtBufferRef.current.trim();
-      
-      if (conversationMode === 'full') {
-        if (toSendSrc.length > 0 || toSendTgt.length > 0) {
-          addMessage({
-            text: toSendSrc,
-            translatedText: toSendTgt,
-            sourceLanguage: sourceLanguage.code,
-            targetLanguage: targetLanguage.code,
-            isUser: false,
-          });
-        }
-      } else {
-        // 仅译文模式
-        if (toSendSingle.length > 0) {
-          addMessage({
-            text: '',
-            translatedText: toSendSingle,
-            sourceLanguage: sourceLanguage.code,
-            targetLanguage: targetLanguage.code,
-            isUser: false,
-          });
-        }
-      }
 
-      // 清空缓冲
-      setRtSrcBuffer('');
-      setRtTgtBuffer('');
-      setRtBuffer('');
+      // 3. 打印将要添加的消息
+      console.log(`--- [Message to Add] --- Src: "${toSendSrc}", Tgt: "${toSendTgt}"`);
+
       rtSrcBufferRef.current = '';
       rtTgtBufferRef.current = '';
-      rtBufferRef.current = '';
-    }, 1000);
-  }, [realtime.lastEvent, realtimeEnabled, addMessage, sourceLanguage.code, targetLanguage.code, extractRealtimeText, extractOriginalText, conversationMode]);
 
+      if (toSendSrc.length > 0) {
+        addMessage({
+          text: toSendSrc,
+          translatedText: '',
+          sourceLanguage: sourceLanguage.code,
+          targetLanguage: targetLanguage.code,
+          isUser: true,
+        });
+      }
+      if (toSendTgt.length > 0) {
+        addMessage({
+          text: '',
+          translatedText: toSendTgt,
+          sourceLanguage: sourceLanguage.code,
+          targetLanguage: targetLanguage.code,
+          isUser: false,
+        });
+      }
+    }, 1200);
+
+  }, [realtime.lastEvent, realtimeEnabled, addMessage, sourceLanguage.code, targetLanguage.code, extractRealtimeText, extractOriginalText]);
+  
   // 当关闭实时或卸载时清理缓冲
   useEffect(() => {
     return () => {
       if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
-      setRtSrcBuffer('');
-      setRtTgtBuffer('');
-      setRtBuffer('');
       rtSrcBufferRef.current = '';
       rtTgtBufferRef.current = '';
-      rtBufferRef.current = '';
     };
   }, []);
 
