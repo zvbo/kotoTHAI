@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#34495e" />
+    </marker>
+    <marker id="arrowDashed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8e44ad" />
+    </marker>
+    <linearGradient id="gradApp" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#e8f5ff"/>
+      <stop offset="100%" stop-color="#cfe9ff"/>
+    </linearGradient>
+    <linearGradient id="gradServer" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#eafaf1"/>
+      <stop offset="100%" stop-color="#d1f0df"/>
+    </linearGradient>
+    <linearGradient id="gradOpenAI" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f5eaff"/>
+      <stop offset="100%" stop-color="#e6d6ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="760" fill="#ffffff"/>
+  <text x="600" y="40" text-anchor="middle" font-size="24" fill="#2c3e50">KotoTHAI Realtime：后端代办 SDP 握手（控制面）与端到端媒体流（数据面）</text>
+
+  <!-- Legend -->
+  <g transform="translate(40,70)">
+    <rect x="0" y="0" width="1120" height="70" rx="10" ry="10" fill="#f8f9fa" stroke="#e1e4e8"/>
+    <circle cx="40" cy="35" r="6" fill="#34495e"/><text x="60" y="40" font-size="14" fill="#2c3e50">实线箭头：HTTPS 控制面（REST 调用）</text>
+    <circle cx="380" cy="35" r="6" fill="#8e44ad"/><text x="400" y="40" font-size="14" fill="#2c3e50">虚线箭头：WebRTC 数据面（SRTP 媒体流）</text>
+  </g>
+
+  <!-- App box -->
+  <g transform="translate(60,170)">
+    <rect x="0" y="0" width="320" height="420" rx="16" ry="16" fill="url(#gradApp)" stroke="#2980b9"/>
+    <text x="160" y="40" text-anchor="middle" font-size="18" fill="#2c3e50">iOS App（Expo/React Native）</text>
+    <g>
+      <rect x="20" y="70" width="280" height="80" rx="10" ry="10" fill="#fff" stroke="#2980b9"/>
+      <text x="160" y="100" text-anchor="middle" font-size="15" fill="#2c3e50">RTCPeerConnection</text>
+      <text x="160" y="120" text-anchor="middle" font-size="12" fill="#2c3e50">createOffer() → 本地 SDP</text>
+    </g>
+    <g>
+      <rect x="20" y="170" width="280" height="70" rx="10" ry="10" fill="#fff" stroke="#2980b9"/>
+      <text x="160" y="200" text-anchor="middle" font-size="14" fill="#2c3e50">POST /api/ephemeral（可选）</text>
+      <text x="160" y="220" text-anchor="middle" font-size="12" fill="#2c3e50">获取临时鉴权/参数</text>
+    </g>
+    <g>
+      <rect x="20" y="250" width="280" height="90" rx="10" ry="10" fill="#fff" stroke="#2980b9"/>
+      <text x="160" y="285" text-anchor="middle" font-size="14" fill="#2c3e50">POST /api/realtime/sdp</text>
+      <text x="160" y="305" text-anchor="middle" font-size="12" fill="#2c3e50">Body: offer + model (+ token)</text>
+      <text x="160" y="325" text-anchor="middle" font-size="12" fill="#2c3e50">Response: answer（由后端代 OpenAI 交换）</text>
+    </g>
+    <g>
+      <rect x="20" y="350" width="280" height="50" rx="10" ry="10" fill="#fff" stroke="#2980b9"/>
+      <text x="160" y="380" text-anchor="middle" font-size="12" fill="#2c3e50">设置远端描述 → 完成握手</text>
+    </g>
+    <text x="160" y="415" text-anchor="middle" font-size="12" fill="#7f8c8d">EXPO_PUBLIC_AGENT_SERVER_URL = https://你的域名</text>
+  </g>
+
+  <!-- Server box -->
+  <g transform="translate(440,170)">
+    <rect x="0" y="0" width="320" height="420" rx="16" ry="16" fill="url(#gradServer)" stroke="#27ae60"/>
+    <text x="160" y="40" text-anchor="middle" font-size="18" fill="#2c3e50">Agent Server（Express/Render）</text>
+    <g>
+      <rect x="20" y="70" width="280" height="60" rx="10" ry="10" fill="#fff" stroke="#27ae60"/>
+      <text x="160" y="100" text-anchor="middle" font-size="14" fill="#2c3e50">/health → { status: 'ok' }</text>
+    </g>
+    <g>
+      <rect x="20" y="140" width="280" height="60" rx="10" ry="10" fill="#fff" stroke="#27ae60"/>
+      <text x="160" y="170" text-anchor="middle" font-size="14" fill="#2c3e50">/api/realtime/status → 统计</text>
+    </g>
+    <g>
+      <rect x="20" y="210" width="280" height="90" rx="10" ry="10" fill="#fff" stroke="#27ae60"/>
+      <text x="160" y="237" text-anchor="middle" font-size="14" fill="#2c3e50">/api/realtime/sdp</text>
+      <text x="160" y="257" text-anchor="middle" font-size="12" fill="#2c3e50">接收 offer，代表客户端与 OpenAI 交换</text>
+    </g>
+    <g>
+      <rect x="20" y="310" width="280" height="60" rx="10" ry="10" fill="#fff" stroke="#27ae60"/>
+      <text x="160" y="340" text-anchor="middle" font-size="12" fill="#2c3e50">使用 OPENAI_API_KEY 与 OpenAI 通讯</text>
+    </g>
+  </g>
+
+  <!-- OpenAI box -->
+  <g transform="translate(820,170)">
+    <rect x="0" y="0" width="320" height="420" rx="16" ry="16" fill="url(#gradOpenAI)" stroke="#8e44ad"/>
+    <text x="160" y="40" text-anchor="middle" font-size="18" fill="#2c3e50">OpenAI Realtime API</text>
+    <g>
+      <rect x="20" y="70" width="280" height="70" rx="10" ry="10" fill="#fff" stroke="#8e44ad"/>
+      <text x="160" y="100" text-anchor="middle" font-size="14" fill="#2c3e50">/v1/realtime</text>
+      <text x="160" y="122" text-anchor="middle" font-size="12" fill="#2c3e50">处理 offer/answer</text>
+    </g>
+    <g>
+      <rect x="20" y="160" width="280" height="60" rx="10" ry="10" fill="#fff" stroke="#8e44ad"/>
+      <text x="160" y="190" text-anchor="middle" font-size="12" fill="#2c3e50">返回 answer 给 Server → App</text>
+    </g>
+    <g>
+      <rect x="20" y="230" width="280" height="60" rx="10" ry="10" fill="#fff" stroke="#8e44ad"/>
+      <text x="160" y="260" text-anchor="middle" font-size="12" fill="#2c3e50">建立 WebRTC 连接（媒体面）</text>
+    </g>
+  </g>
+
+  <!-- Control plane arrows -->
+  <path d="M380,295 C420,295 420,255 440,255" stroke="#34495e" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="410" y="245" font-size="12" fill="#2c3e50" text-anchor="middle">POST offer</text>
+
+  <path d="M760,255 C800,255 800,220 820,220" stroke="#34495e" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="790" y="210" font-size="12" fill="#2c3e50" text-anchor="middle">转发到 /v1/realtime</text>
+
+  <path d="M820,285 C800,285 800,320 760,320" stroke="#34495e" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="790" y="335" font-size="12" fill="#2c3e50" text-anchor="middle">返回 answer</text>
+
+  <path d="M440,345 C420,345 420,385 380,385" stroke="#34495e" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="410" y="400" font-size="12" fill="#2c3e50" text-anchor="middle">答复给 App</text>
+
+  <!-- Data plane (WebRTC) dashed arrow -->
+  <path d="M380,520 C500,600 700,600 940,520" stroke="#8e44ad" stroke-width="2.5" fill="none" stroke-dasharray="8 6" marker-end="url(#arrowDashed)"/>
+  <text x="660" y="640" font-size="12" fill="#8e44ad" text-anchor="middle">音频/事件 等媒体流：App ↔ OpenAI（不经过你的后端）</text>
+
+  <!-- Bottom notes -->
+  <g transform="translate(40,690)">
+    <text x="0" y="0" font-size="13" fill="#2c3e50">备注：</text>
+    <text x="60" y="0" font-size="13" fill="#2c3e50">1) 前端仅与“你的域名”通讯完成握手；2) 该域名可以直接使用 Render 提供的 https://&lt;app&gt;.onrender.com；3) 为 iOS/ATS 与真机访问，需要公网 HTTPS。</text>
+  </g>
+</svg>

@@ -54,6 +54,16 @@ export default function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="history"
+          options={{
+            title: "历史记录",
+            tabBarLabel: '历史',
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons name="history" size={22} color={color} />
+            ),
+          }}
+        />
       </Tabs>
     </AppProvider>
   );

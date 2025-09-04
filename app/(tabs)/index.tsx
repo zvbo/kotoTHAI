@@ -16,6 +16,7 @@ import useRealtime from '@/hooks/useRealtime';
 import LanguageSelector from '@/components/LanguageSelector';
 // import LanguagePickerModal from '@/components/LanguagePickerModal';
 import ToastBanner from '../../components/ToastBanner';
+import { saveConversation } from '@/utils/storage';
 
 
 // Constants for review reward time
@@ -78,6 +79,7 @@ export default function TranslateScreen() {
   const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => setToast({ message, type, key: Date.now() });
   // Ref for messages list
   const messagesListRef = useRef<FlatList>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // 录音/转写流程：根据当前状态进行切换
   const handleStatusPress = useCallback(async () => {
@@ -484,6 +486,31 @@ export default function TranslateScreen() {
           </TouchableOpacity>
           {/* 删除“测试API”按钮 */}
           {/* 测试API按钮已移除 */}
+
+          {/* 新增：保存对话按钮 */}
+          <TouchableOpacity
+            accessibilityLabel="保存当前对话"
+            style={[styles.testButton, { marginTop: spacing.md, backgroundColor: colors.accent.green, opacity: isSaving ? 0.6 : 1 }]}
+            onPress={async () => {
+              try {
+                if (isSaving) return;
+                if (!messages || messages.length === 0) {
+                  showToast('暂无可保存的对话', 'info');
+                  return;
+                }
+                setIsSaving(true);
+                await saveConversation(messages);
+                showToast('已保存当前对话', 'success');
+              } catch (e) {
+                console.error('[index] saveConversation error', e);
+                showToast('保存失败，请稍后重试', 'error');
+              } finally {
+                setIsSaving(false);
+              }
+            }}
+          >
+            <Text style={styles.testButtonText}>{isSaving ? '保存中…' : '保存对话'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
