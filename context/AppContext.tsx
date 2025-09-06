@@ -153,6 +153,47 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     setMessages(prev => [...prev, newMessage]);
   }, []);
 
+  // 新增：创建流式占位气泡，返回 messageId
+  const createStreamingPlaceholder = useCallback((params: {
+    text?: string;
+    translatedText?: string;
+    sourceLanguage: string;
+    targetLanguage: string;
+    isUser: boolean;
+    streamingKind: 'source' | 'target';
+  }): string => {
+    const newMessage: ConversationMessage = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      text: params.text ?? '',
+      translatedText: params.translatedText ?? '',
+      sourceLanguage: params.sourceLanguage,
+      targetLanguage: params.targetLanguage,
+      timestamp: Date.now(),
+      isUser: params.isUser,
+      partial: true,
+      streamingKind: params.streamingKind,
+    };
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage.id;
+  }, []);
+
+  // 新增：根据ID增量更新文本（保持 partial=true）
+  const updateStreamingText = useCallback((id: string, patch: { text?: string; translatedText?: string; }): void => {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      return {
+        ...m,
+        text: patch.text !== undefined ? patch.text : m.text,
+        translatedText: patch.translatedText !== undefined ? patch.translatedText : m.translatedText,
+      };
+    }));
+  }, []);
+
+  // 新增：完成占位气泡（partial=false）
+  const finalizeStreamingMessage = useCallback((id: string): void => {
+    setMessages(prev => prev.map(m => (m.id === id ? { ...m, partial: false } : m)));
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
   }, []);
@@ -222,6 +263,10 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
     stopSession,
     setStatus,
     addMessage,
+    // 新增：流式占位相关
+    createStreamingPlaceholder,
+    updateStreamingText,
+    finalizeStreamingMessage,
     clearMessages,
 
     // 新增：开发测试 - 重置时长

@@ -71,11 +71,21 @@ Important: Always translate into the OTHER language. Never reply in the same lan
       // ]
     };
 
-    // 关键修复：把 instructions、voice 和 input_audio_transcription 一并传给 OpenAI，确保实时会话启用翻译行为和音频转写
+    // 关键修复：把 instructions、voice、turn_detection 和 input_audio_transcription 一并传给 OpenAI，
+    // 确保实时会话在“创建”阶段就启用翻译行为和音频转写，避免默认聊天提示词生效
     const openAIResponse = await openai.beta.realtime.sessions.create({
       model: session.model as any,
       voice: voiceName,
       instructions: instructions,
+      modalities: ['audio', 'text'],
+      turn_detection: {
+        type: 'server_vad',
+        threshold: 0.5,
+        prefix_padding_ms: 300,
+        silence_duration_ms: 2200,
+        create_response: true,
+        interrupt_response: true,
+      } as any,
       input_audio_transcription: { model: 'whisper-1' },
     });
 

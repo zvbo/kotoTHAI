@@ -18,7 +18,8 @@ interface InCallManager {
 interface SessionConfig {
   input_audio_transcription?: { model: string };
   instructions?: string;
-  audio?: { output?: { voice?: string } };
+  // 删除不被支持的 audio 字段，避免在 session.update 中发送 session.audio
+  // audio?: { output?: { voice?: string } };
   turn_detection?: { type: string; threshold: number; prefix_padding_ms: number; silence_duration_ms: number };
   model?: string;
 }
@@ -128,8 +129,9 @@ export default function useRealtime(params?: UseRealtimeParams) {
         ? raw.instructions
         : buildFallbackInstructions(params?.sourceLangCode, params?.targetLangCode);
 
-    const voice = raw?.audio?.output?.voice || 'marin';
-    session.audio = { output: { voice } };
+    // 移除对 voice 的前端设置，voice 应由后端在会话创建时设定；避免发送 session.audio 触发 unknown_parameter 错误
+    // const voice = raw?.audio?.output?.voice || 'marin';
+    // session.audio = { output: { voice } };
 
     session.turn_detection =
       raw?.turn_detection && typeof raw.turn_detection === 'object'

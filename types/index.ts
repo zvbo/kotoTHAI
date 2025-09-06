@@ -22,6 +22,10 @@ export type ConversationMessage = {
   targetLanguage: string;
   timestamp: number;
   isUser: boolean;
+  // 新增：是否为流式占位/未完成气泡
+  partial?: boolean;
+  // 新增：流式种类（后续可用于区分原文/译文占位）
+  streamingKind?: 'source' | 'target';
 };
 
 export type UserState = {

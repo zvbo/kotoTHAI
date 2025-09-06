@@ -7,7 +7,7 @@ import ConversationBubble from '@/components/ConversationBubble';
 // 移除手动录音模式的状态指示器
 // import StatusIndicator from '@/components/StatusIndicator';
 import TimeExpiredCard from '@/components/TimeExpiredCard';
-import WelcomeCard from '@/components/WelcomeCard';
+// import WelcomeCard from '@/components/WelcomeCard';
 import { useAppContext } from '@/context/AppContext';
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
 import useRealtime from '@/hooks/useRealtime';
@@ -343,40 +343,45 @@ export default function TranslateScreen() {
 
   const extractOriginalText = useCallback((ev: unknown): string | null => {
     if (!ev || typeof ev !== 'object') return null;
-    
-    // 尝试从常见的聚合/嵌套结构中提取原文文本
-    const tryCollect = (obj: any): string | null => {
-      if (!obj || typeof obj !== 'object') return null;
-      
-      // 1) 直接的 transcript/text 字段
-      if (typeof obj.transcript === 'string' && obj.transcript.trim()) return obj.transcript;
-      if (typeof obj.text === 'string' && obj.text.trim()) return obj.text;
-      
-      // 2) 嵌套在 input 或 input_audio 中的文本
-      if (obj.input && typeof obj.input.text === 'string') return obj.input.text;
-      if (obj.input_audio && typeof obj.input_audio.text === 'string') return obj.input_audio.text;
+    const obj: any = ev as any;
 
-      // 3) 嵌套在 audio_transcription 中的文本
-      if (obj.audio_transcription && typeof obj.audio_transcription.text === 'string') {
-        return obj.audio_transcription.text;
-      }
-      if (obj.audio_transcription && typeof obj.audio_transcription.transcript === 'string') {
-        return obj.audio_transcription.transcript;
-      }
-      
+    const tryCollect = (maybe: any): string | null => {
+      if (!maybe || typeof maybe !== 'object') return null;
+      if (typeof maybe.text === 'string' && maybe.text.trim()) return maybe.text;
+      if (typeof maybe.transcript === 'string' && maybe.transcript.trim()) return maybe.transcript;
+      if (typeof maybe.value === 'string' && maybe.value.trim()) return maybe.value;
       return null;
     };
-    
-    // 1) 根据事件类型提取
-    if ('type' in ev && typeof (ev as any).type === 'string') {
-      const t = (ev as any).type as string;
-      console.log(`处理事件类型: ${t}`);
-      
-      // 处理 conversation.item.audio_transcription.completed 事件
-      if (t.includes('audio_transcription')) {
-        console.log('检测到音频转写事件:', JSON.stringify(ev, null, 2));
-        const item = (ev as any).item;
-        if (item && item.audio_transcription) {
+
+    // 1) 顶层直接字段
+    if (typeof obj.input === 'string' && obj.input.trim()) return obj.input as string;
+
+    // 2) 嵌套在 input 或 input_audio 中的文本
+    if (obj.input_audio && typeof obj.input_audio.text === 'string') return obj.input_audio.text;
+
+    // 3) 嵌套在 audio_transcription 中的文本
+    if (obj.audio_transcription && typeof obj.audio_transcription.text === 'string') {
+      return obj.audio_transcription.text;
+    }
+    if (obj.audio_transcription && typeof obj.audio_transcription.transcript === 'string') {
+      return obj.audio_transcription.transcript;
+    }
+    // 3.1) 兼容 input_audio_transcription
+    if (obj.input_audio_transcription && typeof obj.input_audio_transcription.text === 'string') {
+      return obj.input_audio_transcription.text;
+    }
+    if (obj.input_audio_transcription && typeof obj.input_audio_transcription.transcript === 'string') {
+      return obj.input_audio_transcription.transcript;
+    }
+
+    // 4) 事件类型判断
+    const t: string | undefined = (obj as any).type;
+
+    // 处理 conversation.item.audio_transcription.completed / conversation.item.input_audio_transcription.completed
+    if (t && (t.includes('audio_transcription') || t.includes('input_audio_transcription'))) {
+      const item = (obj as any).item;
+      if (item) {
+        if (item.audio_transcription) {
           if (typeof item.audio_transcription.text === 'string') {
             console.log(`提取到音频转写文本: ${item.audio_transcription.text}`);
             return item.audio_transcription.text;
@@ -386,61 +391,50 @@ export default function TranslateScreen() {
             return item.audio_transcription.transcript;
           }
         }
-      }
-      
-      // 处理增量转写事件
-      if ((t.includes('input_audio') || t.includes('transcription') || t.includes('asr'))) {
-        console.log('检测到增量转写事件:', JSON.stringify(ev, null, 2));
-        // 检查 delta 字段
-        if ('delta' in ev) {
-          const d: any = (ev as any).delta;
-          if (typeof d === 'string') {
-            console.log(`提取到增量转写文本(string): ${d}`);
-            return d;
+        if (item.input_audio_transcription) {
+          if (typeof item.input_audio_transcription.text === 'string') {
+            console.log(`提取到音频转写文本: ${item.input_audio_transcription.text}`);
+            return item.input_audio_transcription.text;
           }
-          if (d && typeof d === 'object') {
-            if (typeof d.text === 'string') {
-              console.log(`提取到增量转写文本(delta.text): ${d.text}`);
-              return d.text;
-            }
-            if (typeof d.transcript === 'string') {
-              console.log(`提取到增量转写文本(delta.transcript): ${d.transcript}`);
-              return d.transcript;
-            }
+          if (typeof item.input_audio_transcription.transcript === 'string') {
+            console.log(`提取到音频转写文本: ${item.input_audio_transcription.transcript}`);
+            return item.input_audio_transcription.transcript;
           }
-        }
-        // 检查直接的 text 字段
-        if ('text' in ev && typeof (ev as any).text === 'string') {
-          console.log(`提取到转写文本(text): ${(ev as any).text}`);
-          return (ev as any).text as string;
         }
       }
     }
-    
-    // 2) 尝试从各种路径提取
-    const extracted = 
-      tryCollect(ev) ||
+
+    if ((t && (t.includes('input_audio') || t.includes('transcription') || t.includes('asr')))) {
+      // 检查 delta 字段
+      if ('delta' in ev) {
+        const d: any = (ev as any).delta;
+        if (typeof d === 'string' && d.trim()) {
+          console.log(`提取到增量转写文本(delta string): ${d}`);
+          return d;
+        }
+        if (d && typeof d === 'object') {
+          if (typeof d.text === 'string' && d.text.trim()) {
+            console.log(`提取到增量转写文本(delta.text): ${d.text}`);
+            return d.text;
+          }
+          if (typeof d.transcript === 'string' && d.transcript.trim()) {
+            console.log(`提取到增量转写文本(delta.transcript): ${d.transcript}`);
+            return d.transcript;
+          }
+        }
+      }
+    }
+
+    // 5) 其他常见嵌套结构
+    return (
       tryCollect((ev as any).input) ||
       tryCollect((ev as any).input_audio) ||
       tryCollect((ev as any).transcription) ||
       tryCollect((ev as any).audio_transcription) ||
-      tryCollect((ev as any).item); // 兼容 conversation.item.* 事件
-    if (extracted) {
-      console.log(`从其他路径提取到原文: ${extracted}`);
-      return extracted;
-    }
-    
-    // 3) 直接字段兜底
-    if ('transcript' in ev && typeof (ev as any).transcript === 'string') {
-      console.log(`从transcript字段提取到原文: ${(ev as any).transcript}`);
-      return (ev as any).transcript as string;
-    }
-    if ('input' in ev && typeof (ev as any).input === 'string') {
-      console.log(`从input字段提取到原文: ${(ev as any).input}`);
-      return (ev as any).input as string;
-    }
-    
-    return null;
+      tryCollect((ev as any).input_audio_transcription) ||
+      tryCollect((ev as any).item) ||
+      null
+    );
   }, []);
 
   useEffect(() => {
@@ -482,68 +476,23 @@ export default function TranslateScreen() {
       }
     }
 
-    // 无可见更新则无需处理
+    // 事件类型判定（用于分阶段冲刷）
+    const ev: any = realtime.lastEvent as any;
+    const evType: string | undefined = typeof ev === 'object' ? (ev?.type as string) : undefined;
+
+    // 当仅译文/原文都没有增量时，进一步判断是否属于“阶段完成/轮次结束”事件
     if (!tgtChunkRaw && !srcChunk) {
-      // 但若事件属于"结束/完成"类型，也要触发一次冲刷（仅当已见用户输入）
-      const ev: any = realtime.lastEvent;
-      const evType: string | undefined = typeof ev === 'object' ? (ev?.type as string) : undefined;
-      if (userInputSeenRef.current && evType && (evType.includes('completed') || evType.includes('stop') || evType.includes('stopped') || evType.includes('turn.end'))) {
-        console.log('检测到会话结束事件，立即冲刷缓冲区:', evType);
-        if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
-        // 立即冲刷
+      // 1) 原文完成：优先在“完整对话模式”下先落原文气泡
+      const isSrcFinalEvent = Boolean(
+        evType && (
+          evType.includes('audio_transcription.completed') ||
+          evType.includes('input_audio_transcription.completed') ||
+          evType.includes('transcription.completed')
+        )
+      );
+      if (isSrcFinalEvent) {
         const toSendSrc = rtSrcBufferRef.current.trim();
-        const toSendTgt = rtTgtBufferRef.current.trim();
-        rtSrcBufferRef.current = '';
-        rtTgtBufferRef.current = '';
-        // 清空实时字幕
-        setRealtimeSrcText('');
-        setRealtimeTgtText('');
-        if (toSendSrc.length > 0 || toSendTgt.length > 0) {
-          console.log(`--- [Final Flush] --- Src: "${toSendSrc}", Tgt: "${toSendTgt}"`);
-          if (conversationMode === 'full') {
-            if (toSendSrc.length > 0) {
-              addMessage({ text: toSendSrc, translatedText: '', sourceLanguage: sourceLanguage.code, targetLanguage: targetLanguage.code, isUser: true });
-            }
-            if (toSendTgt.length > 0) {
-              addMessage({ text: '', translatedText: toSendTgt, sourceLanguage: sourceLanguage.code, targetLanguage: targetLanguage.code, isUser: false });
-            }
-          } else if (conversationMode === 'translation_only') {
-            // 在translation_only模式下，即使没有源文本也显示译文
-            if (toSendTgt.length > 0) {
-              addMessage({ text: '', translatedText: toSendTgt, sourceLanguage: sourceLanguage.code, targetLanguage: targetLanguage.code, isUser: false });
-            }
-          }
-        }
-      }
-      return;
-    }
-
-    if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
-
-    // 根据事件类型选择合适的延迟：完成/停止类事件立即冲刷，普通增量 1200ms 去抖
-    let delay = 1200;
-    try {
-      const ev: any = realtime.lastEvent;
-      const evType: string | undefined = typeof ev === 'object' ? (ev?.type as string) : undefined;
-      if (evType && (evType.includes('completed') || evType.includes('stop') || evType.includes('stopped') || evType.includes('turn.end'))) {
-        delay = 0;
-      }
-    } catch {}
-
-    rtTimerRef.current = setTimeout(() => {
-      const toSendSrc = rtSrcBufferRef.current.trim();
-      const toSendTgt = rtTgtBufferRef.current.trim();
-
-      console.log(`--- [Message to Add] --- Src: "${toSendSrc}", Tgt: "${toSendTgt}"`);
-
-      rtSrcBufferRef.current = '';
-      rtTgtBufferRef.current = '';
-      // 清空实时字幕
-      setRealtimeSrcText('');
-      setRealtimeTgtText('');
-
-      if (conversationMode === 'full') {
-        if (toSendSrc.length > 0) {
+        if (conversationMode === 'full' && toSendSrc.length > 0) {
           addMessage({
             text: toSendSrc,
             translatedText: '',
@@ -551,29 +500,125 @@ export default function TranslateScreen() {
             targetLanguage: targetLanguage.code,
             isUser: true,
           });
+          console.log(`--- [Flush Source Only] --- Src: "${toSendSrc}"`);
         }
-        if (toSendTgt.length > 0) {
-          addMessage({
-            text: '',
-            translatedText: toSendTgt,
-            sourceLanguage: sourceLanguage.code,
-            targetLanguage: targetLanguage.code,
-            isUser: false,
-          });
-        }
-      } else if (conversationMode === 'translation_only') {
-        // 在translation_only模式下，即使没有源文本也显示译文
-        if (toSendTgt.length > 0) {
-          addMessage({
-            text: '',
-            translatedText: toSendTgt,
-            sourceLanguage: sourceLanguage.code,
-            targetLanguage: targetLanguage.code,
-            isUser: false,
-          });
-        }
+        // 清空原文缓冲与实时字幕，但保留 userInputSeenRef 供后续译文落地
+        rtSrcBufferRef.current = '';
+        setRealtimeSrcText('');
+        return; // 本次事件已处理
       }
-    }, delay);
+
+      // 2) 译文完成：在检测到本轮确有原文后，再落译文气泡并复位轮次
+      const isTgtFinalEvent = Boolean(
+        evType && (
+          evType.includes('response.completed') ||
+          evType.includes('response.output_text.done') ||
+          evType.includes('output_text.done')
+        )
+      );
+      if (isTgtFinalEvent) {
+        const toSendTgt = rtTgtBufferRef.current.trim();
+        const hadSourceThisTurn = userInputSeenRef.current;
+        if (toSendTgt.length > 0 && hadSourceThisTurn) {
+          addMessage({
+            text: '',
+            translatedText: toSendTgt,
+            sourceLanguage: sourceLanguage.code,
+            targetLanguage: targetLanguage.code,
+            isUser: false,
+          });
+          console.log(`--- [Flush Target Only] --- Tgt: "${toSendTgt}"`);
+        }
+        // 清空译文缓冲与实时字幕，并复位轮次标记；顺带清理可能残留的原文缓冲
+        rtTgtBufferRef.current = '';
+        setRealtimeTgtText('');
+        rtSrcBufferRef.current = '';
+        setRealtimeSrcText('');
+        userInputSeenRef.current = false;
+        return; // 本次事件已处理
+      }
+
+      // 3) 兜底：轮次结束（非特定 completed 类型），统一冲刷剩余缓冲
+      if (userInputSeenRef.current && evType && (evType.includes('turn.end') || evType.includes('stop') || evType.includes('stopped'))) {
+        console.log('检测到会话结束事件，立即冲刷缓冲区:', evType);
+        if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
+        const toSendSrc = rtSrcBufferRef.current.trim();
+        const toSendTgt = rtTgtBufferRef.current.trim();
+        const hadSourceThisTurn = userInputSeenRef.current;
+        rtSrcBufferRef.current = '';
+        rtTgtBufferRef.current = '';
+        setRealtimeSrcText('');
+        setRealtimeTgtText('');
+        if (toSendSrc.length > 0 && conversationMode === 'full') {
+          addMessage({ text: toSendSrc, translatedText: '', sourceLanguage: sourceLanguage.code, targetLanguage: targetLanguage.code, isUser: true });
+        }
+        if (toSendTgt.length > 0 && hadSourceThisTurn) {
+          addMessage({ text: '', translatedText: toSendTgt, sourceLanguage: sourceLanguage.code, targetLanguage: targetLanguage.code, isUser: false });
+        }
+        userInputSeenRef.current = false;
+        return;
+      }
+      return;
+    }
+
+    if (rtTimerRef.current) clearTimeout(rtTimerRef.current);
+
+    // 仅在“轮次结束”事件时才异步冲刷，避免与上面的分阶段冲刷重复
+    let isCompletion = false;
+    try {
+      const ev: any = realtime.lastEvent;
+      const evType: string | undefined = typeof ev === 'object' ? (ev?.type as string) : undefined;
+      if (evType && (evType.includes('turn.end') || evType.includes('stop') || evType.includes('stopped'))) {
+        isCompletion = true;
+      }
+    } catch {}
+
+    if (isCompletion) {
+      rtTimerRef.current = setTimeout(() => {
+        const toSendSrc = rtSrcBufferRef.current.trim();
+        const toSendTgt = rtTgtBufferRef.current.trim();
+        const hadSourceThisTurn = userInputSeenRef.current;
+
+        console.log(`--- [Message to Add] --- Src: "${toSendSrc}", Tgt: "${toSendTgt}"`);
+
+        rtSrcBufferRef.current = '';
+        rtTgtBufferRef.current = '';
+        setRealtimeSrcText('');
+        setRealtimeTgtText('');
+
+        if (conversationMode === 'full') {
+          if (toSendSrc.length > 0) {
+            addMessage({
+              text: toSendSrc,
+              translatedText: '',
+              sourceLanguage: sourceLanguage.code,
+              targetLanguage: targetLanguage.code,
+              isUser: true,
+            });
+          }
+          if (toSendTgt.length > 0 && hadSourceThisTurn) {
+            addMessage({
+              text: '',
+              translatedText: toSendTgt,
+              sourceLanguage: sourceLanguage.code,
+              targetLanguage: targetLanguage.code,
+              isUser: false,
+            });
+          }
+        } else if (conversationMode === 'translation_only') {
+          if (toSendTgt.length > 0 && hadSourceThisTurn) {
+            addMessage({
+              text: '',
+              translatedText: toSendTgt,
+              sourceLanguage: sourceLanguage.code,
+              targetLanguage: targetLanguage.code,
+              isUser: false,
+            });
+          }
+        }
+        userInputSeenRef.current = false;
+      }, 0);
+    }
 
   }, [realtime.lastEvent, realtimeEnabled, addMessage, sourceLanguage.code, targetLanguage.code, extractRealtimeText, extractOriginalText, conversationMode]);
   
@@ -603,10 +648,8 @@ export default function TranslateScreen() {
         />
       )}
       {userState.firstLaunch && (
-        <WelcomeCard 
-          remainingTime={userState.remainingTime}
-          onDismiss={() => { acknowledgeFirstLaunch(); setRealtimeEnabled(true); }}
-        />
+        // WelcomeCard 已移除：使用下方的简洁欢迎提示（位于消息区上方，非气泡样式）
+        null
       )}
       
       <LanguageSelector
@@ -688,6 +731,16 @@ export default function TranslateScreen() {
         sourceBubbleText={undefined}
         targetBubbleText={undefined}
       />
+
+      {/* 简洁欢迎提示：位于消息区上方，非气泡样式，仅首次显示 */}
+      {userState.firstLaunch && messages.length === 0 && (
+        <View style={styles.welcomeTipContainer}>
+          <Text style={styles.welcomeTipText}>开始说话即可双向翻译（应用不会主动发话）</Text>
+          <TouchableOpacity onPress={() => acknowledgeFirstLaunch()}>
+            <Text style={styles.welcomeTipAction}>知道了</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* 实时双路字幕区域 - 仅在有内容时显示 */}
       {realtimeEnabled &&
@@ -872,5 +925,29 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.body,
     fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
+  },
+  // 新增：欢迎提示样式（非气泡）
+  welcomeTipContainer: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface.paper,
+    borderRadius: borderRadius.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...shadows.sm,
+  },
+  welcomeTipText: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: typography.fontSize.body,
+  },
+  welcomeTipAction: {
+    marginLeft: spacing.md,
+    color: colors.accent.green,
+    fontSize: typography.fontSize.body,
+    fontWeight: typography.fontWeight.medium,
   },
 });

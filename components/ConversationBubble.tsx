@@ -15,6 +15,7 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
   // 针对泰语（th）在 iOS 上的显示问题：禁用 letterSpacing 与 italic
   const isThaiOriginal = hasOriginal && message.sourceLanguage === 'th';
   const isThaiTranslation = hasTranslation && message.targetLanguage === 'th';
+  const isPartial = message.partial;
   
   const getBubbleGradient = (): [string, string] => {
     return isUser 
@@ -25,13 +26,15 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
   return (
     <View style={[
       styles.container,
-      isUser ? styles.userContainer : styles.otherContainer
+      isUser ? styles.userContainer : styles.otherContainer,
+      isPartial && styles.partialContainer
     ]}>
       <LinearGradient
         colors={getBubbleGradient()}
         style={[
           styles.bubble,
-          isUser ? styles.userBubble : styles.otherBubble
+          isUser ? styles.userBubble : styles.otherBubble,
+          isPartial && styles.partialBubble
         ]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -44,6 +47,7 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
               isThaiOriginal && styles.thaiTextAdjust,
             ]}>
               {message.text}
+              {isPartial && message.streamingKind === 'source' ? ' …' : ''}
             </Text>
           )}
 
@@ -61,6 +65,7 @@ export default function ConversationBubble({ message }: ConversationBubbleProps)
               isThaiTranslation && styles.thaiTextAdjust,
             ]}>
               {message.translatedText}
+              {isPartial && message.streamingKind === 'target' ? ' …' : ''}
             </Text>
           )}
         </View>
@@ -124,5 +129,11 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: spacing.sm,
     opacity: 0.6,
+  },
+  partialContainer: {
+    opacity: 0.95,
+  },
+  partialBubble: {
+    borderStyle: 'dashed',
   },
 });
