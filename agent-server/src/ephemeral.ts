@@ -1,51 +1,86 @@
-import express from 'express';
+import { Router, Request, Response } from 'express';
 import OpenAI from 'openai';
 
-const router = express.Router();
+// --- Type Definitions ---
+
+interface EphemeralRequestBody {
+  sourceLanguage: string;
+  targetLanguage: string;
+}
+
+interface SdpProxyRequestBody {
+  offer?: string;
+  model?: string;
+  token?: string;
+}
+
+interface SessionPayload {
+  model: string;
+  instructions: string;
+  language?: { code: string; voice: string }[];
+}
+
+const router = Router();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 颁发临时密钥（OpenAI Realtime session）
-router.post('/ephemeral', async (req, res) => {
+// Endpoint to issue an ephemeral key (OpenAI Realtime session)
+router.post('/ephemeral', async (req: Request, res: Response) => {
   try {
-    // 【DEBUG】记录详细的请求信息以诊断 JSON 解析问题
-    console.log('=== /ephemeral 请求详情 ===');
+    console.log('=== /ephemeral Request Details ===');
     console.log('Content-Type:', req.get('Content-Type'));
-    console.log('User-Agent:', req.get('User-Agent'));
-    console.log('req.body type:', typeof req.body);
     console.log('req.body content:', JSON.stringify(req.body, null, 2));
-    console.log('req.rawBody (if available):', (req as any).rawBody);
-    console.log('=== End Request Details ===');
+    console.log('==============================');
 
-    // 1. 从请求体中获取前端选择的语言
-    const { sourceLanguage, targetLanguage } = req.body;
+    const { sourceLanguage, targetLanguage } = req.body as EphemeralRequestBody;
 
-    // 2. 严格按照用户要求定义模型和语音
-    const modelName = 'gpt-realtime-2025-08-28'; // <-- 严格使用此模型名称
+    const modelName: SessionPayload['model'] = 'gpt-realtime-2025-08-28';
     const voiceName = 'alloy';
 
-    // 3. 构建一个简洁、明确的指令，强制模型扮演“翻译员”角色
-    const instructions = `You are a real-time translator. Your only function is to translate the user's speech between ${sourceLanguage} and ${targetLanguage}. Do not add any commentary. Provide only the translation.`;
+    const instructions = `
+Start silent: On session start, produce NO output. Do not greet, do not welcome, do not introduce yourself. Remain silent until there is user audio or text input.
+Only produce output AFTER you receive user speech or text input. If there is no user input, stay silent.
 
-    // 4. 构建最终的 session 对象，融合指令和语言配置
-    const session = {
+You are a professional real-time simultaneous interpreter between ${sourceLanguage} and ${targetLanguage}.
+Your ONLY responsibility is to translate each incoming utterance into the OTHER language. Do not greet, do not chat, do not answer questions, do not add explanations.
+
+Core behavior:
+1) For every single utterance, first detect its language. If it is in ${sourceLanguage}, output only the translation in ${targetLanguage}. If it is in ${targetLanguage}, output only the translation in ${sourceLanguage}.
+2) Output strictly the translated sentence(s) only — no prefixes, no labels, no quotes, no backticks, no brackets, no extra commentary.
+3) Preserve meaning, tone, intent, and key details (numbers, names, dates). Adapt to natural, idiomatic expressions in the target language. Be concise and clear.
+4) Maintain appropriate politeness and formality for everyday conversation and travel scenarios (e.g., directions, transportation, hotel, dining, shopping). Prefer natural spoken phrasing.
+5) Do not add new content, do not omit important content, do not explain. Never apologize or say you are an AI.
+6) If the speaker uses fillers (e.g., “嗯/呃/เอ่อ”), you may omit them or use a natural equivalent in the target language.
+7) Punctuate and segment sentences naturally. If the input is short, produce a short natural translation.
+8) When content mixes both languages, translate the whole message into the other language in a unified, fluent way.
+
+Direction examples (do not print these examples in your output):
+- Input in ${sourceLanguage} -> Output in ${targetLanguage}
+- Input in ${targetLanguage} -> Output in ${sourceLanguage}
+
+Important: Always translate into the OTHER language. Never reply in the same language as the input. Never answer the question yourself — only translate it.`;
+
+    const session: SessionPayload = {
       model: modelName,
       instructions: instructions,
-      language: [
-        { code: sourceLanguage, voice: voiceName },
-        { code: targetLanguage, voice: voiceName }
-      ]
-    } as any;
+      // 移除language字段，避免前端发送不支持的字段
+      // language: [
+      //   { code: sourceLanguage, voice: voiceName },
+      //   { code: targetLanguage, voice: voiceName }
+      // ]
+    };
 
-    // 调用 OpenAI 创建一次会话以获取临时 client_secret（ephemeral key）
+    // 关键修复：把 instructions、voice 和 input_audio_transcription 一并传给 OpenAI，确保实时会话启用翻译行为和音频转写
     const openAIResponse = await openai.beta.realtime.sessions.create({
-      model: session.model,
-    } as any);
+      model: session.model as any,
+      voice: voiceName,
+      instructions: instructions,
+      input_audio_transcription: { model: 'whisper-1' },
+    });
 
-    // 5. 确保返回的是这个最终的 session 对象
     return res.json({
-      apiKey: (openAIResponse as any)?.client_secret?.value || (openAIResponse as any)?.apiKey,
+      apiKey: openAIResponse.client_secret.value,
       session: session,
     });
   } catch (error) {
@@ -54,31 +89,22 @@ router.post('/ephemeral', async (req, res) => {
   }
 });
 
-// 新增：SDP 代理（后端代办与 OpenAI 的 SDP 握手）
-router.post('/realtime/sdp', async (req, res) => {
+// SDP proxy to handle handshakes with OpenAI
+router.post('/realtime/sdp', async (req: Request, res: Response) => {
   try {
-    console.log('=== /realtime/sdp 请求详情 ===');
+    console.log('=== /realtime/sdp Request Details ===');
     console.log('Content-Type:', req.get('Content-Type'));
-    console.log('User-Agent:', req.get('User-Agent'));
-    console.log('req.body type:', typeof req.body);
     console.log('req.body content:', JSON.stringify(req.body, null, 2));
-    console.log('=== End Request Details ===');
+    console.log('===============================');
 
-    const { offer, model, token } = (req.body || {}) as {
-      offer?: string;
-      model?: string;
-      token?: string; // 可传入前一步颁发的临时密钥（ephemeral client_secret）
-    };
+    const { offer, model, token } = (req.body || {}) as SdpProxyRequestBody;
 
     if (!offer || typeof offer !== 'string') {
       return res.status(400).json({ ok: false, message: 'missing offer sdp' });
     }
 
-    const mdl = (model && typeof model === 'string' && model.length > 0)
-      ? model
-      : 'gpt-realtime-2025-08-28';
-
-    const authHeader = `Bearer ${token && token.length > 0 ? token : (process.env.OPENAI_API_KEY || '')}`;
+    const mdl = (model as SessionPayload['model']) || 'gpt-realtime-2025-08-28';
+    const authHeader = `Bearer ${token || process.env.OPENAI_API_KEY || ''}`;
 
     const upstream = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(mdl)}`, {
       method: 'POST',
@@ -92,11 +118,9 @@ router.post('/realtime/sdp', async (req, res) => {
 
     const answerText = await upstream.text();
     if (!upstream.ok) {
-      // 透传上游错误（便于定位）
       return res.status(upstream.status).send(answerText);
     }
 
-    // 返回与 OpenAI 一致的内容类型，前端可直接 setRemoteDescription
     res.type('application/sdp').send(answerText);
   } catch (error) {
     console.error('Error proxying SDP handshake:', error);
@@ -104,8 +128,8 @@ router.post('/realtime/sdp', async (req, res) => {
   }
 });
 
-// 获取会话/服务状态
-router.get('/status', (_req, res) => {
+// Health/status check endpoint
+router.get('/status', (_req: Request, res: Response) => {
   res.json({
     status: 'ready',
     model: 'gpt-realtime-2025-08-28',

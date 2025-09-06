@@ -1,8 +1,9 @@
+import 'react-native-reanimated';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { LogBox, Platform, View, StyleProp, ViewStyle } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -17,8 +18,16 @@ function RootLayoutNav() {
       <Stack.Screen name="about/privacy" options={{ title: '隐私政策' }} />
       <Stack.Screen name="about/terms" options={{ title: '服务条款' }} />
       <Stack.Screen name="about/support" options={{ title: '帮助与支持' }} />
+      <Stack.Screen name="conversation/[id]" options={{ title: '对话详情' }} />
     </Stack>
   );
+}
+
+// Define a more specific type for the wrapper component's props.
+interface RootWrapperProps {
+  style?: StyleProp<ViewStyle>;
+  className?: string;
+  children?: React.ReactNode;
 }
 
 export default function RootLayout() {
@@ -26,7 +35,6 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
   }, []);
 
-  // 在 Web 开发环境下，暂时隐藏 React Native 的 LogBox 覆盖层，避免挡住 UI 点击
   useEffect(() => {
     if (__DEV__ && Platform.OS === 'web') {
       try {
@@ -35,12 +43,12 @@ export default function RootLayout() {
     }
   }, []);
 
-  // 针对 Web 平台，使用 View 包裹，避免 GestureHandlerRootView 在 Web 上为 undefined 导致的渲染错误
-  const RootWrapper: React.ComponentType<any> = Platform.OS === 'web' ? View : GestureHandlerRootView;
+  const RootWrapper: React.ComponentType<RootWrapperProps> = Platform.OS === 'web' ? View : GestureHandlerRootView;
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RootWrapper style={{ flex: 1 }}>
+      {/* 关键修复：确保根容器在 Web 端也占满高度，否则子页面 flex:1 将没有可用空间 */}
+      <RootWrapper style={{ flex: 1 }} className="flex-1">
         <RootLayoutNav />
       </RootWrapper>
     </QueryClientProvider>

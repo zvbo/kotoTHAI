@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { FlatList, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
@@ -52,7 +52,7 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.primary.beige, paddingTop: spacing.md }}>
+    <View style={styles.container}>
       <Text style={{ marginLeft: spacing.md, marginBottom: spacing.sm, color: colors.text.secondary }}>
         {loading ? '加载中…' : `共 ${items.length} 条对话`}
       </Text>
@@ -67,3 +67,10 @@ export default function HistoryScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.surface.white,
+  },
+});

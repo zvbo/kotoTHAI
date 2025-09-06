@@ -1,10 +1,11 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Pressable, GestureResponderEvent } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import Colors from '@/constants/colors';
 import { Language } from '@/types';
 import { shadows, spacing } from '@/styles/designSystem';
 import { ALL_LANGUAGES } from '@/constants/languages';
+import LanguageBubble from './LanguageBubble';
 
 type LanguageSelectorProps = {
   sourceLanguage: Language;
@@ -13,11 +14,13 @@ type LanguageSelectorProps = {
   onTargetPress: () => void;
   onSwapPress: () => void;
   disabled?: boolean;
-  // 新增：控制与回调（用于内联下拉列表）
   showSourcePicker?: boolean;
   showTargetPicker?: boolean;
   onSelectSource?: (lang: Language) => void;
   onSelectTarget?: (lang: Language) => void;
+  showLanguageBubbles?: boolean;
+  sourceBubbleText?: string;
+  targetBubbleText?: string;
 };
 
 export default function LanguageSelector({
@@ -31,10 +34,21 @@ export default function LanguageSelector({
   showTargetPicker = false,
   onSelectSource,
   onSelectTarget,
+  showLanguageBubbles = false,
+  sourceBubbleText,
+  targetBubbleText,
 }: LanguageSelectorProps) {
   return (
     <View style={styles.container}>
       <View style={styles.buttonWrapper}>
+        {showLanguageBubbles && (
+          <LanguageBubble
+            language={sourceLanguage}
+            position="left"
+            visible={true}
+            text={sourceBubbleText}
+          />
+        )}
         <LanguageButton 
           language={sourceLanguage} 
           onPress={() => {
@@ -43,7 +57,6 @@ export default function LanguageSelector({
           }}
           disabled={disabled}
           testID="source-language-button"
-          bottomLabel="listen"
         />
         {showSourcePicker && (
           <View style={[styles.dropdown, styles.dropdownLeft]} pointerEvents="auto">
@@ -57,15 +70,15 @@ export default function LanguageSelector({
                     selected && styles.dropdownItemSelected,
                     pressed && styles.dropdownItemPressed
                   ]}
-                  onPress={(e: any) => {
+                  onPress={(e: GestureResponderEvent) => {
                     console.log(`[LanguageSelector] Source dropdown item pressed: ${item.name}`);
-                    try { e?.stopPropagation?.(); } catch {}
+                    e.stopPropagation();
                     onSelectSource?.(item);
                   }}
                   testID={`source-dropdown-${item.code}`}
                 >
                   <Text style={styles.flag}>{item.flag}</Text>
-                  <View style={{ flex: 1 }}>
+                  <View className="flex-1">
                     <Text style={styles.dropdownItemText}>{item.name}</Text>
                     {item.nativeName && item.nativeName !== item.name && (
                       <Text style={styles.dropdownItemSubText}>{item.nativeName}</Text>
@@ -99,6 +112,14 @@ export default function LanguageSelector({
       </Pressable>
       
       <View style={styles.buttonWrapper}>
+        {showLanguageBubbles && (
+          <LanguageBubble
+            language={targetLanguage}
+            position="right"
+            visible={true}
+            text={targetBubbleText}
+          />
+        )}
         <LanguageButton 
           language={targetLanguage} 
           onPress={() => {
@@ -107,13 +128,9 @@ export default function LanguageSelector({
           }} 
           disabled={disabled}
           testID="target-language-button"
-          bottomLabel="speak"
         />
         {showTargetPicker && (
-          <View style={[styles.dropdown, styles.dropdownRight]}
-            // Web 上避免事件透传到下层按钮
-            pointerEvents="auto"
-          >
+          <View style={[styles.dropdown, styles.dropdownRight]} pointerEvents="auto">
             {ALL_LANGUAGES.map((item) => {
               const selected = item.code === targetLanguage.code;
               return (
@@ -124,15 +141,15 @@ export default function LanguageSelector({
                     selected && styles.dropdownItemSelected,
                     pressed && styles.dropdownItemPressed
                   ]}
-                  onPress={(e: any) => {
+                  onPress={(e: GestureResponderEvent) => {
                     console.log(`[LanguageSelector] Target dropdown item pressed: ${item.name}`);
-                    try { e?.stopPropagation?.(); } catch {}
+                    e.stopPropagation();
                     onSelectTarget?.(item);
                   }}
                   testID={`target-dropdown-${item.code}`}
                 >
                   <Text style={styles.flag}>{item.flag}</Text>
-                  <View style={{ flex: 1 }}>
+                  <View className="flex-1">
                     <Text style={styles.dropdownItemText}>{item.name}</Text>
                     {item.nativeName && item.nativeName !== item.name && (
                       <Text style={styles.dropdownItemSubText}>{item.nativeName}</Text>
@@ -165,9 +182,9 @@ function LanguageButton({ language, onPress, disabled = false, testID, bottomLab
         disabled && styles.disabled,
         pressed && !disabled && styles.languageButtonPressed
       ]}
-      onPress={(e: any) => {
+      onPress={(e: GestureResponderEvent) => {
         console.log(`[LanguageButton] Press event on ${bottomLabel} button.`);
-        try { e?.stopPropagation?.(); } catch {}
+        e.stopPropagation();
         onPress();
       }}
       disabled={disabled}
@@ -189,22 +206,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.md,
-    // 允许子元素溢出展示
     overflow: 'visible',
-    // 提高整体层级，避免被下方容器覆盖
     zIndex: 50,
-    // Web 上确保 zIndex 生效
     position: 'relative',
   },
   buttonWrapper: {
     flex: 1,
-    // 允许按钮的下拉在外部显示
     overflow: 'visible',
     zIndex: 60,
-    // 形成堆叠上下文
     position: 'relative',
   },
-  // 语言按钮样式
   languageButton: {
     backgroundColor: Colors.backgroundSecondary,
     paddingVertical: 16,
@@ -238,7 +249,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 6,
   },
-  // 中间交换按钮
   swapButton: {
     backgroundColor: Colors.background,
     padding: 16,
@@ -259,7 +269,6 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },
-  // 下拉菜单样式（悬浮于文档流）
   dropdown: {
     position: 'absolute',
     top: '100%',

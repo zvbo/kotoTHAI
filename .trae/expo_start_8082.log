@@ -1,0 +1,13 @@
+env: load .env
+env: export EXPO_PUBLIC_AGENT_SERVER_URL
+Starting project at /Users/kelly_zhu/Documents/GitHub/app/kotoTHAI/kotoba_trae
+Starting Metro Bundler
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+Waiting on http://localhost:8082
+Logs for your project will appear below.
+Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓░░░░░░░░░░ 39.5% (222/371)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 46.8% (595/870)
+Web Bundled 10559ms node_modules/expo-router/entry.js (1343 modules)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 97.8% (1328/1343)
+ LOG  [web] Logs will appear in the browser console

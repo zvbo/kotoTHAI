@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import createContextHook from '@nkzw/create-context-hook';
 import { useEffect, useState, useCallback } from 'react';
 
-import { DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE, WELCOME_MESSAGES, ALL_LANGUAGES } from '@/constants/languages';
+import { DEFAULT_SOURCE_LANGUAGE, DEFAULT_TARGET_LANGUAGE } from '@/constants/languages';
 import { ConversationMessage, ConversationStatus, Language, UserState } from '@/types';
 import { getDeviceId } from '@/utils/device';
 
@@ -141,7 +141,7 @@ export const [AppProvider, useAppContext] = createContextHook(() => {
   }, []);
 
   // 新增：对话显示模式（仅译文/完整对话）
-  const [conversationMode, setConversationMode] = useState<'translation_only' | 'full'>('translation_only');
+  const [conversationMode, setConversationMode] = useState<'translation_only' | 'full' | 'voice_only'>('full');
 
   const addMessage = useCallback((message: Omit<ConversationMessage, 'id' | 'timestamp'>) => {
     const newMessage: ConversationMessage = {

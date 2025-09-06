@@ -1,4 +1,10 @@
 declare module 'react-native-incall-manager' {
-  const InCallManager: any;
+  interface InCallManagerStatic {
+    start(options?: { media: 'audio' | 'video' }): void;
+    stop(): void;
+    setForceSpeakerphoneOn(enabled: boolean): void;
+  }
+
+  const InCallManager: InCallManagerStatic;
   export default InCallManager;
 }

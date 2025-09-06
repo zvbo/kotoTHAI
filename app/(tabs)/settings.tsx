@@ -2,17 +2,24 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as StoreReview from 'expo-store-review';
-// 移除外部浏览器/深链，改用应用内路由
-// import * as WebBrowser from 'expo-web-browser';
-// import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
+import type { Product, Purchase, PurchaseError } from 'react-native-iap';
+import type { EmitterSubscription } from 'react-native';
+import {
+  initConnection,
+  getProducts,
+  purchaseUpdatedListener,
+  purchaseErrorListener,
+  requestPurchase,
+  finishTransaction,
+  clearTransactionIOS,
+} from 'react-native-iap';
 
 import Colors from '@/constants/colors';
 import { useAppContext } from '@/context/AppContext';
 import { formatTime } from '@/utils/time';
 import { shadows } from '@/styles/designSystem';
 import { PURCHASE_OPTIONS, type PurchaseOptionItem, IAP_PRODUCT_ID_BY_OPTION, IAP_PRODUCT_IDS, OPTION_BY_IAP_PRODUCT_ID } from '../../constants/purchases';
-import * as RNIap from 'react-native-iap';
 import { verifyIAP } from '@/utils/api';
 
 export default function SettingsScreen() {
@@ -22,54 +29,53 @@ export default function SettingsScreen() {
   const [iapReady, setIapReady] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [processing, setProcessing] = useState(false);
-  // optionId -> 显示的本地化价格
-  const [priceByOption, setPriceByOption] = useState<Record<PurchaseOptionItem['id'], string>>({} as any);
-  const purchaseUpdateSub = useRef<any>(null);
-  const purchaseErrorSub = useRef<any>(null);
+  const [priceByOption, setPriceByOption] = useState<Record<string, string>>({});
+  const purchaseUpdateSub = useRef<EmitterSubscription | null>(null);
+  const purchaseErrorSub = useRef<EmitterSubscription | null>(null);
 
   // 初始化 IAP & 拉取商品
   useEffect(() => {
-    // 仅在原生 iOS 环境下启用 IAP，避免在 Web/Safari 中触发 E_IAP_NOT_AVAILABLE
     if (Platform.OS !== 'ios') {
       return;
     }
 
     let mounted = true;
-    (async () => {
+    const initializeIap = async () => {
       try {
-        const ok = await RNIap.initConnection();
-        if (!ok) return;
+        await initConnection();
         // iOS 无需 flushPending（Android 专有），若 SDK 提供 clearTransactionIOS 则安全清理一次
-        try { await (RNIap as any).clearTransactionIOS?.(); } catch {}
+        if (clearTransactionIOS) {
+          await clearTransactionIOS();
+        }
         if (!mounted) return;
         setIapReady(true);
         setLoadingProducts(true);
-        // v13 兼容：某些环境下需要对象参数；加 any 规避类型差异
-        const prods = await (RNIap as any).getProducts?.({ skus: IAP_PRODUCT_IDS }) ?? await (RNIap as any).getProducts(IAP_PRODUCT_IDS);
-        const next: Partial<Record<PurchaseOptionItem['id'], string>> = {};
-        for (const p of prods || []) {
+        
+        const prods: Product[] = await getProducts({ skus: IAP_PRODUCT_IDS });
+        const next: Record<string, string> = {};
+        for (const p of prods) {
           const optionId = OPTION_BY_IAP_PRODUCT_ID[p.productId];
           if (optionId) {
-            // 优先 localizedPrice / priceString
-            next[optionId] = p.localizedPrice || p.priceString || p.price || '';
+            next[optionId] = p.localizedPrice || p.price || '';
           }
         }
         if (!mounted) return;
-        setPriceByOption(prev => ({ ...prev, ...(next as any) }));
+        setPriceByOption(prev => ({ ...prev, ...next }));
       } catch (e) {
         console.warn('[IAP] init/getProducts failed:', e);
       } finally {
-        setLoadingProducts(false);
+        if (mounted) {
+          setLoadingProducts(false);
+        }
       }
-    })();
+    };
 
-    // 订阅购买事件（仅 iOS 原生）
-    purchaseUpdateSub.current = RNIap.purchaseUpdatedListener(async (purchase: any) => {
+    initializeIap();
+
+    purchaseUpdateSub.current = purchaseUpdatedListener(async (purchase: Purchase) => {
       try {
-        if (!purchase) return;
-        const receipt: string | undefined = purchase.transactionReceipt || purchase.originalJson || purchase.receipt;
-        const productId: string | undefined = purchase.productId;
-        const transactionId: string | undefined = purchase.transactionId || purchase.transactionIdIOS || purchase.transactionIdentifier;
+        const receipt = purchase.transactionReceipt;
+        const { productId, transactionId } = purchase;
         if (!receipt || !productId) return;
 
         setProcessing(true);
@@ -77,7 +83,7 @@ export default function SettingsScreen() {
         if (verify?.ok && verify.grantSeconds) {
           addTime(verify.grantSeconds);
           try {
-            await (RNIap as any).finishTransaction?.({ purchase, isConsumable: true }) ?? (RNIap as any).finishTransaction(purchase, true);
+            await finishTransaction({ purchase, isConsumable: true });
           } catch (finErr) {
             console.warn('[IAP] finishTransaction failed:', finErr);
           }
@@ -93,7 +99,7 @@ export default function SettingsScreen() {
       }
     });
 
-    purchaseErrorSub.current = RNIap.purchaseErrorListener((err: any) => {
+    purchaseErrorSub.current = purchaseErrorListener((err: PurchaseError) => {
       console.warn('[IAP] purchase error:', err);
       if (err?.code !== 'E_USER_CANCELLED') {
         Alert.alert('购买失败', err?.message || '请稍后重试');
@@ -103,13 +109,11 @@ export default function SettingsScreen() {
 
     return () => {
       mounted = false;
-      try { purchaseUpdateSub.current?.remove?.(); } catch {}
-      try { purchaseErrorSub.current?.remove?.(); } catch {}
-      try { RNIap.endConnection(); } catch {}
+      purchaseUpdateSub.current?.remove();
+      purchaseErrorSub.current?.remove();
     };
   }, [addTime]);
 
-  // 合规的评分请求：不承诺奖励，不修改用户状态
   const handleRequestReview = useCallback(async () => {
     try {
       if (Platform.OS !== 'web' && (await StoreReview.hasAction())) {
@@ -117,13 +121,12 @@ export default function SettingsScreen() {
       } else {
         Alert.alert('感谢支持', '您的支持对我们非常重要！');
       }
-    } catch (e) {
+    } catch {
       Alert.alert('暂不可用', '当前无法打开评分页面，请稍后再试');
     }
   }, []);
 
-  // 真实购买流程
-  const handlePurchase = useCallback(async (id: PurchaseOptionItem['id'], title: string, price: string) => {
+  const handlePurchase = useCallback(async (id: PurchaseOptionItem['id']) => {
     if (Platform.OS !== 'ios') {
       Alert.alert('暂不支持', '当前版本仅支持 iOS 内购');
       return;
@@ -135,19 +138,19 @@ export default function SettingsScreen() {
     }
     try {
       setProcessing(true);
-      // 不自动完成交易，等待服务端确认
-      await (RNIap as any).requestPurchase?.({ sku: productId, andDangerouslyFinishTransactionAutomatically: false })
-        ?? (RNIap as any).requestPurchase(productId, false);
-    } catch (e: any) {
-      console.warn('[IAP] requestPurchase failed:', e);
-      Alert.alert('购买失败', e?.message || '请稍后再试');
+      await requestPurchase({ sku: productId, andDangerouslyFinishTransactionAutomaticallyIOS: false });
+    } catch (e) {
+      const error = e as PurchaseError;
+      console.warn('[IAP] requestPurchase failed:', error);
+      if (error.code !== 'E_USER_CANCELLED') {
+        Alert.alert('购买失败', error?.message || '请稍后再试');
+      }
       setProcessing(false);
     }
   }, []);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Time status */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>翻译时长</Text>
         <View style={styles.timeCard}>
@@ -155,9 +158,16 @@ export default function SettingsScreen() {
           <Text style={styles.timeLabel}>剩余</Text>
           
           <TouchableOpacity 
-            style={[styles.addTimeButton, (!iapReady || processing) && { opacity: 0.7 }]}
-            onPress={() => setShowPurchaseOptions(true)}
-            disabled={!iapReady || processing}
+            className={(!iapReady || processing) ? 'opacity-70' : ''}
+            style={styles.addTimeButton}
+            onPress={() => {
+              if (Platform.OS !== 'ios') {
+                Alert.alert('暂不支持', '购买目前仅支持在 iPhone 上进行，请在 iOS 设备上打开应用完成购买。');
+                return;
+              }
+              setShowPurchaseOptions(true);
+            }}
+            disabled={Platform.OS === 'ios' ? (!iapReady || processing) : processing}
             testID="add-time-button"
           >
             <Text style={styles.addTimeButtonText}>{processing ? '处理中…' : '添加时长'}</Text>
@@ -165,7 +175,7 @@ export default function SettingsScreen() {
 
           {__DEV__ && (
             <TouchableOpacity
-              style={[styles.addTimeButton, { marginTop: 8, backgroundColor: Colors.secondary }]}
+              style={[styles.addTimeButton, styles.devButton]}
               onPress={() => {
                 resetUserTime();
                 Alert.alert('已重置', '免费时长已重置为 10 分钟（仅开发环境可见）');
@@ -177,16 +187,13 @@ export default function SettingsScreen() {
           )}
         </View>
       </View>
-
-      {/* 显示模式模块已按产品要求下线（web / iOS 均不显示） */}
       
-      {/* Purchase options */}
       {showPurchaseOptions && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>购买选项</Text>
           
           {loadingProducts && (
-            <View style={{ paddingVertical: 8 }}>
+            <View className="py-2">
               <ActivityIndicator color={Colors.primary} />
             </View>
           )}
@@ -197,7 +204,7 @@ export default function SettingsScreen() {
                 key={opt.id}
                 title={opt.title}
                 price={priceByOption[opt.id] || opt.priceDisplay}
-                onPress={() => handlePurchase(opt.id, opt.title, priceByOption[opt.id] || opt.priceDisplay)}
+                onPress={() => handlePurchase(opt.id)}
                 featured={opt.featured}
               />
             ))}
@@ -205,10 +212,8 @@ export default function SettingsScreen() {
         </View>
       )}
       
-      {/* Rate app */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>支持 kotoTHAI</Text>
-        
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={handleRequestReview}
@@ -219,10 +224,8 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* About & Help */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>关于</Text>
-        
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => router.push('/about/privacy')}
@@ -231,7 +234,6 @@ export default function SettingsScreen() {
           <Text style={styles.optionText}>隐私政策</Text>
           <MaterialCommunityIcons name="open-in-new" size={16} color={Colors.textSecondary} style={styles.externalIcon} />
         </TouchableOpacity>
-        
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => router.push('/about/terms')}
@@ -240,7 +242,6 @@ export default function SettingsScreen() {
           <Text style={styles.optionText}>服务条款</Text>
           <MaterialCommunityIcons name="open-in-new" size={16} color={Colors.textSecondary} style={styles.externalIcon} />
         </TouchableOpacity>
-        
         <TouchableOpacity 
           style={styles.optionButton}
           onPress={() => router.push('/about/support')}
@@ -251,7 +252,6 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* App version */}
       <View style={styles.versionContainer}>
         <Text style={styles.versionText}>kotoTHAI v1.0.0</Text>
       </View>
@@ -323,43 +323,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
   },
+  devButton: {
+    marginTop: 8,
+    backgroundColor: Colors.secondary,
+  },
   addTimeButtonText: {
     color: Colors.textLight,
     fontSize: 16,
     fontWeight: '500',
   },
-  // （样式中保留 segment/hint 等旧样式以兼容将来的需求，但已不再渲染）
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: Colors.backgroundSecondary,
-    borderRadius: 12,
-    padding: 4,
-    ...shadows.sm,
-  },
-  segmentItem: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  segmentItemActive: {
-    backgroundColor: Colors.primary,
-  },
-  segmentText: {
-    fontSize: 14,
-    color: Colors.textPrimary,
-    fontWeight: '600',
-  },
-  segmentTextActive: {
-    color: Colors.textLight,
-  },
-  hintText: {
-    marginTop: 8,
-    fontSize: 12,
-    color: Colors.textSecondary,
-    lineHeight: 18,
-  },
-  // ==============================
   purchaseOptions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -371,7 +343,6 @@ const styles = StyleSheet.create({
     padding: 16,
     width: '31%',
     alignItems: 'center',
-    // 修复：使用设计系统阴影，跨平台一致
     ...shadows.md,
     position: 'relative',
   },

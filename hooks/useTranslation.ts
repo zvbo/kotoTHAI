@@ -23,21 +23,19 @@ export default function useTranslation() {
     try {
       const formData = new FormData();
       
-      // Append audio file
       if (Platform.OS === 'web') {
-        // For web, we need to fetch the file and convert it to a blob
         const response = await fetch(audioFile.uri);
         const blob = await response.blob();
         formData.append('audio', blob, audioFile.name);
       } else {
-        // For native platforms
+        // RN-specific file upload format. The `any` cast is a pragmatic workaround
+        // for the discrepancy between standard Blob types and RN's file object.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         formData.append('audio', audioFile as any);
       }
       
-      // Append language code
       formData.append('language', sourceLanguage.code);
 
-      // Send to transcription API
       const response = await fetch('https://toolkit.rork.com/stt/transcribe/', {
         method: 'POST',
         body: formData,
@@ -74,7 +72,6 @@ export default function useTranslation() {
     setError(null);
 
     try {
-      // Prepare messages for the LLM
       const messages = [
         {
           role: 'system',
@@ -86,7 +83,6 @@ export default function useTranslation() {
         }
       ];
 
-      // Send to translation API
       const response = await fetch('https://toolkit.rork.com/text/llm/', {
         method: 'POST',
         headers: {

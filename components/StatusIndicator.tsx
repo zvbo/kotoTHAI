@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { ConversationStatus } from '@/types';
 import { formatTime } from '@/utils/time';
-import { colors, spacing, borderRadius, shadows, typography } from '@/styles/designSystem';
+import { colors, spacing, shadows, typography } from '@/styles/designSystem';
 
 type StatusIndicatorProps = {
   status: ConversationStatus | 'recording';
@@ -98,10 +98,8 @@ export default function StatusIndicator({
       <TouchableOpacity
         onPress={onPress}
         disabled={isDisabled}
-        style={[
-          styles.touchable,
-          { opacity: isDisabled ? 0.6 : 1 }
-        ]}
+                className={isDisabled ? 'opacity-60' : ''}
+        style={styles.touchable}
         testID="status-indicator"
       >
         <Animated.View

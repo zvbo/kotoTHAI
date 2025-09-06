@@ -1,5 +1,5 @@
 {
-  "extends": "expo/tsconfig.base.json",
+  "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
@@ -7,9 +7,15 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": [
+      "nativewind/types"
+    ],
+    "jsx": "react-jsx",
+    "esModuleInterop": true
   },
   "include": [
+    "_layout.tsx",
     "app/**/*.ts",
     "app/**/*.tsx",
     "components/**/*.ts",
@@ -18,6 +24,8 @@
     "utils/**/*.tsx",
     "hooks/**/*.ts",
     "hooks/**/*.tsx",
+    "context/**/*.ts",
+    "context/**/*.tsx",
     "types/**/*.ts",
     "types/**/*.d.ts",
     "constants/**/*.ts",

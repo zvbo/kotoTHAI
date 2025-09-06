@@ -14,7 +14,7 @@ export async function getDeviceId(): Promise<string> {
     const newId = generateFallbackId();
     await AsyncStorage.setItem(STORAGE_KEY, newId);
     return newId;
-  } catch (e) {
+  } catch {
     // 兜底：即使存取失败也返回一个可用的随机ID，保证流程可继续
     return generateFallbackId();
   }
